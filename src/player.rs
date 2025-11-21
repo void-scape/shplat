@@ -53,7 +53,7 @@ pub fn plugin(app: &mut App) {
     InputDamping(30.0),
     InputAcceleration(7000.0),
     JumpImpulse {
-        impulse_range: Vec2::new(300.0, 500.0),
+        impulse_range: Vec2::new(500.0, 700.0),
         duration: 0.2,
     }
 )]
@@ -214,11 +214,12 @@ fn apply_movement(
             &mut InputVelocity,
             &InputAcceleration,
             &InputDamping,
-            &WeaponVelocity,
             &MoveVector,
+            Option<&Children>,
         ),
         With<Player>,
     >,
+    weapons: Query<&WeaponVelocity>,
 ) {
     let dt = time.delta_secs();
     let (
@@ -226,13 +227,23 @@ fn apply_movement(
         mut movement_velocity,
         movement_acceleration,
         movement_damping,
-        weapon_velocity,
         move_vector,
+        children,
     ) = player.into_inner();
     movement_velocity.0 += move_vector.0.x * movement_acceleration.0 * dt;
     movement_velocity.0 *= 1.0 / (1.0 + movement_damping.0 * dt);
-    velocity.x = movement_velocity.0 + weapon_velocity.0.x;
-    velocity.y += weapon_velocity.0.y;
+
+    let weapon_velocity = children
+        .map(|children| {
+            weapons
+                .iter_many(children)
+                .map(|velocity| velocity.0)
+                .sum::<Vec2>()
+        })
+        .unwrap_or_default();
+
+    velocity.x = movement_velocity.0 + weapon_velocity.x;
+    velocity.y += weapon_velocity.y;
 }
 
 #[derive(InputAction)]
@@ -308,25 +319,3 @@ fn handle_attack(
 ) {
     commands.entity(*player).remove::<Jumping>();
 }
-
-// #[derive(Component)]
-// pub struct AccelerationTween {
-//     start: Vec2,
-//     end: Vec2,
-// }
-//
-// pub fn acceleration(start: Vec2, end: Vec2) -> AccelerationTween {
-//     AccelerationTween { start, end }
-// }
-//
-// impl Interpolator for AccelerationTween {
-//     type Item = ExternalAcceleration;
-//     fn interpolate(
-//         &self,
-//         item: &mut Self::Item,
-//         value: bevy_tween::interpolate::CurrentValue,
-//         _: bevy_tween::interpolate::PreviousValue,
-//     ) {
-//         item.0 = self.start.lerp(self.end, value)
-//     }
-// }

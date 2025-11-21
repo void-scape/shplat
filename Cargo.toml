@@ -11,9 +11,11 @@ debug = [
   "bevy/track_location",
   # inspector
   "bevy/bevy_sprite_picking_backend",
+  "bevy/bevy_ui_picking_backend",
   "bevy/bevy_picking",
   "bevy-inspector-egui",
   "bevy_egui",
+  "bevy_simple_text_input",
 ]
 
 [dependencies]
@@ -24,6 +26,7 @@ bevy = { version = "0.17", default-features = false, features = [
   "bevy_window",
   "bevy_winit",
   "bevy_sprite_render",
+  "bevy_ui_render",
   "bevy_gizmos",
   "bevy_text",
   "bevy_gilrs",
@@ -48,6 +51,7 @@ bevy_tween = "0.10"
 # debug
 bevy_egui = { version = "0.38.0", optional = true }
 bevy-inspector-egui = { version = "0.35", optional = true }
+bevy_simple_text_input = { version = "0.12", optional = true }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

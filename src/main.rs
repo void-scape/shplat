@@ -3,6 +3,7 @@
 
 use crate::weapon::*;
 use avian2d::prelude::*;
+use bevy::log::LogPlugin;
 #[cfg(feature = "debug")]
 use bevy::window::PrimaryWindow;
 use bevy::{
@@ -27,6 +28,14 @@ pub const GRAVITY: f32 = 2000.0;
 fn main() {
     let mut app = App::default();
 
+    #[cfg(feature = "debug")]
+    let log = LogPlugin {
+        custom_layer: inspector::term_layer,
+        ..Default::default()
+    };
+    #[cfg(not(feature = "debug"))]
+    let log = LogPlugin::default();
+
     app.add_plugins((
         DefaultPlugins
             .set(ImagePlugin::default_nearest())
@@ -36,7 +45,8 @@ fn main() {
                     ..Default::default()
                 }),
                 ..Default::default()
-            }),
+            })
+            .set(log),
         bevy_tween::DefaultTweenPlugins,
         #[cfg(feature = "debug")]
         inspector::plugin,
@@ -54,35 +64,26 @@ fn main() {
     #[cfg(not(feature = "debug"))]
     app.set_error_handler(bevy::ecs::error::warn);
 
-    #[cfg(debug_assertions)]
-    app.add_systems(Startup, maximize)
-        .add_systems(Update, close_on_escape);
-
     app.init_resource::<Level>()
         .add_systems(
             Startup,
             (
-                camera, // deserialize_level,
-                level_one,
+                camera,
+                deserialize_level,
+                #[cfg(feature = "debug")]
+                maximize,
             ),
         )
         .add_systems(
             Update,
             (
-                reset_level,
                 add_wall_sprites,
-                serialize_level,
                 remove_dynamic_scene_root,
+                #[cfg(feature = "debug")]
+                (user_serialize_level, reset_level),
             ),
         )
         .run();
-}
-
-#[cfg(debug_assertions)]
-fn close_on_escape(input: Res<ButtonInput<KeyCode>>, mut writer: MessageWriter<AppExit>) {
-    if input.just_pressed(KeyCode::Escape) {
-        writer.write(AppExit::Success);
-    }
 }
 
 #[cfg(not(debug_assertions))]
@@ -103,27 +104,33 @@ fn camera(mut commands: Commands) {
 
 #[derive(Default, Component, Reflect)]
 #[reflect(Component)]
-struct Serialize;
+pub struct Serialize;
 
 #[derive(Resource)]
-struct Level(&'static str);
+pub struct Level(&'static str);
 
 impl Default for Level {
     fn default() -> Self {
-        Self("level_one")
+        Self("shotgun_1")
     }
 }
 
-fn serialize_level(
+pub fn user_serialize_level(
+    mut commands: Commands,
+    input: Res<ButtonInput<KeyCode>>,
+    disable_input: Query<&inspector::DisableInput>,
+) {
+    if !disable_input.is_empty() || !input.just_pressed(KeyCode::KeyP) {
+        return;
+    }
+    commands.run_system_cached(serialize_level);
+}
+
+pub fn serialize_level(
     world: &World,
     serialize: Query<Entity, With<Serialize>>,
     level: Res<Level>,
-    input: Res<ButtonInput<KeyCode>>,
 ) {
-    if !input.just_pressed(KeyCode::KeyP) {
-        return;
-    }
-
     let scene = DynamicSceneBuilder::from_world(world)
         .allow_component::<Serialize>()
         .allow_component::<Name>()
@@ -133,7 +140,11 @@ fn serialize_level(
         .allow_component::<Player>()
         .allow_component::<Children>()
         .allow_component::<ChildOf>()
+        .allow_component::<SelectedWeapon>()
         .allow_component::<Shotgun>()
+        .allow_component::<AssaultRifle>()
+        .allow_component::<GravityGun>()
+        .allow_component::<LevelGeometry>()
         .allow_component::<Wall>()
         .allow_component::<RigidBody>()
         .allow_component::<SerializedColliderConstructor>()
@@ -152,7 +163,7 @@ fn serialize_level(
         .detach();
 }
 
-fn deserialize_level(mut commands: Commands, server: Res<AssetServer>, level: Res<Level>) {
+pub fn deserialize_level(mut commands: Commands, server: Res<AssetServer>, level: Res<Level>) {
     commands.spawn((
         Name::from(level.0),
         DynamicSceneRoot(server.load(format!("scenes/{}.scn.ron", level.0))),
@@ -171,15 +182,26 @@ fn remove_dynamic_scene_root(
     }
 }
 
+pub fn despawn_level(
+    mut commands: Commands,
+    entities: Query<Entity, (With<Serialize>, Without<ChildOf>)>,
+) {
+    for entity in entities.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
 fn reset_level(
     mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
-    entities: Query<Entity, With<Serialize>>,
+    disable_input: Query<&inspector::DisableInput>,
 ) {
+    if !disable_input.is_empty() {
+        return;
+    }
+
     if input.just_pressed(KeyCode::KeyR) {
-        for entity in entities.iter() {
-            commands.entity(entity).despawn();
-        }
+        commands.run_system_cached(despawn_level);
         commands.run_system_cached(deserialize_level);
     }
 }
@@ -207,64 +229,22 @@ fn rectangle(width: f32, height: f32) -> SerializedColliderConstructor {
     })
 }
 
-#[allow(unused)]
-fn level_one(mut commands: Commands) {
-    commands.spawn((
-        Player,
-        GravityGun,
-        name("Player"),
-        Transform::from_xyz(-400.0, 0.0, 0.0),
-    ));
-    let mut entity = commands.spawn((
-        Serialize,
-        Transform::default(),
-        Visibility::default(),
-        name("Level Geometry"),
-    ));
-    entity.with_child((
-        RigidBody::Static,
-        Transform::from_xyz(WIDTH * 0.9 / 2.0, -25.0, 0.0),
-        rectangle(WIDTH * 0.75, 25.0),
-        name("Floor Left"),
-        Wall,
-    ));
-    entity.with_child((
-        RigidBody::Static,
-        Transform::from_xyz(-WIDTH * 0.9 / 2.0, -25.0, 0.0),
-        rectangle(WIDTH * 0.75, 25.0),
-        name("Floor Right"),
-        Wall,
-    ));
-    level_walls(entity);
-}
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct LevelGeometry;
 
-#[allow(unused)]
-fn level_two(mut commands: Commands) {
+pub fn new_level(mut commands: Commands) {
     commands.spawn((
         Player,
-        Shotgun,
         name("Player"),
         Transform::from_xyz(-400.0, 0.0, 0.0),
     ));
-    let mut entity = commands.spawn((
+    let entity = commands.spawn((
         Serialize,
+        LevelGeometry,
         Transform::default(),
         Visibility::default(),
         name("Level Geometry"),
-    ));
-    entity.with_child((
-        RigidBody::Static,
-        Transform::from_xyz(WIDTH * 1.1 / 2.0, -25.0, 0.0),
-        rectangle(WIDTH * 0.75, 25.0),
-        name("Floor Left"),
-        Wall,
-    ));
-    entity.with_child((
-        RigidBody::Static,
-        Transform::from_xyz(-WIDTH * 1.1 / 2.0, -25.0, 0.0),
-        rectangle(WIDTH * 0.75, 25.0),
-        name("Floor Right"),
-        Wall,
     ));
     level_walls(entity);
 }
