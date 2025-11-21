@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
-use crate::weapon::Shotgun;
+use crate::weapon::*;
 use avian2d::prelude::*;
 #[cfg(feature = "debug")]
 use bevy::window::PrimaryWindow;
@@ -62,9 +62,8 @@ fn main() {
         .add_systems(
             Startup,
             (
-                camera,
-                deserialize_level,
-                // level_one,
+                camera, // deserialize_level,
+                level_one,
             ),
         )
         .add_systems(
@@ -212,7 +211,7 @@ fn rectangle(width: f32, height: f32) -> SerializedColliderConstructor {
 fn level_one(mut commands: Commands) {
     commands.spawn((
         Player,
-        Shotgun,
+        GravityGun,
         name("Player"),
         Transform::from_xyz(-400.0, 0.0, 0.0),
     ));

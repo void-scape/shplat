@@ -70,6 +70,12 @@ impl Player {
         shape.set_scale(Vec2::splat(0.99), 10);
         ShapeCaster::new(shape, Vec2::ZERO, 0.0, Dir2::NEG_Y).with_max_distance(10.0)
     }
+
+    pub fn ceiling_caster() -> ShapeCaster {
+        let mut shape = Self::collider();
+        shape.set_scale(Vec2::splat(0.99), 10);
+        ShapeCaster::new(shape, Vec2::ZERO, 0.0, Dir2::Y).with_max_distance(10.0)
+    }
 }
 
 #[derive(Component)]
@@ -247,10 +253,11 @@ fn start_jump(
 fn handle_jump(
     _jump: On<Ongoing<Jump>>,
     player: Single<(&mut LinearVelocity, &JumpImpulse, &Jumping), (With<Player>, With<Jumping>)>,
+    gravity: Res<Gravity>,
 ) {
     let (mut velocity, jump_impulse, duration) = player.into_inner();
     let t = EaseKind::CubicInOut.sample(duration.0 / jump_impulse.duration);
-    let range = jump_impulse.impulse_range;
+    let range = jump_impulse.impulse_range * gravity.0.signum().y * -1.0;
     velocity.0.y = range.x.lerp(range.y, t);
 }
 
