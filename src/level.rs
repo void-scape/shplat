@@ -75,7 +75,7 @@ pub struct Level(pub String);
 
 impl Default for Level {
     fn default() -> Self {
-        Self("shotgun_1".to_string())
+        Self("rocket_1".to_string())
     }
 }
 
@@ -281,6 +281,7 @@ pub fn serialize_level(
         .allow_component::<Shotgun>()
         .allow_component::<AssaultRifle>()
         .allow_component::<GravityGun>()
+        .allow_component::<Rocket>()
         .allow_component::<LevelGeometry>()
         .allow_component::<Door>()
         .allow_component::<MustDestroy>()

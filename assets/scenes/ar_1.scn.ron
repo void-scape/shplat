@@ -166,7 +166,7 @@
         "bevy_ecs::name::Name": "Assault Rifle",
         "shplat::level::Serialize": (),
         "shplat::weapon::AssaultRifle": (),
-        "shplat::weapon::MaxAmmo": (3),
+        "shplat::weapon::MaxAmmo": (6),
         "shplat::weapon::SelectedWeapon": (),
       },
     ),

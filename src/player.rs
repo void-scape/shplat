@@ -1,7 +1,4 @@
-use crate::{
-    level::{Layer, Serialize, Wall},
-    weapon::{WeaponSystems, WeaponVelocity},
-};
+use crate::level::{Layer, Serialize, Wall};
 use avian2d::prelude::*;
 use bevy::{
     color::palettes::css::BLUE, input::mouse::MouseMotion, prelude::*, window::PrimaryWindow,
@@ -15,8 +12,7 @@ pub fn plugin(app: &mut App) {
             FixedPostUpdate,
             (grounded, apply_movement)
                 .chain()
-                .in_set(PhysicsSystems::Last)
-                .after(WeaponSystems),
+                .in_set(PhysicsSystems::Last),
         )
         .add_systems(Update, aim_with_mouse_input)
         .add_observer(inject_bindings)
@@ -44,20 +40,19 @@ pub fn plugin(app: &mut App) {
     Friction = Friction::ZERO.with_combine_rule(CoefficientCombine::Min),
     // Bounce???
     Restitution::PERFECTLY_ELASTIC,
-    ColliderDensity(2.0),
     CollisionLayers::new(Layer::Player, [Layer::Default, Layer::Wall, Layer::KillBox]),
     // Input Components
     OrientationMethod,
     MoveVector,
     AimVector,
     // Physics Parameters
-    InputVelocity,
-    InputDamping(30.0),
-    InputAcceleration(9000.0),
+    InputVelocity(300.0),
+    WeaponVelocity,
+    WeaponVelocityDamp(10.0),
     JumpImpulse {
         impulse_range: Vec2::new(500.0, 700.0),
         duration: 0.2,
-    }
+    },
 )]
 #[reflect(Component)]
 pub struct Player;
@@ -97,19 +92,15 @@ fn grounded(
     }
 }
 
-/// X-axis acceleration applied to the player from input.
-#[derive(Component)]
-pub struct InputAcceleration(pub f32);
-
-/// X-axis velocity of the player input.
-///
-/// Stored seperately from [`LinearVelocity`] to apply [`InputDamping`].
+/// X-axis velocity applied to the player from input.
 #[derive(Default, Component)]
 pub struct InputVelocity(pub f32);
 
-/// X-axis damping applied to [`InputVelocity`].
+#[derive(Default, Component)]
+pub struct WeaponVelocity(pub Vec2);
+
 #[derive(Component)]
-pub struct InputDamping(pub f32);
+pub struct WeaponVelocityDamp(pub f32);
 
 #[derive(Component)]
 pub struct JumpImpulse {
@@ -214,39 +205,28 @@ fn apply_movement(
     player: Single<
         (
             &mut LinearVelocity,
-            &mut InputVelocity,
-            &InputAcceleration,
-            &InputDamping,
+            &mut WeaponVelocity,
+            &InputVelocity,
+            &WeaponVelocityDamp,
             &MoveVector,
-            Option<&Children>,
         ),
         With<Player>,
     >,
-    weapons: Query<&WeaponVelocity>,
 ) {
     let dt = time.delta_secs();
-    let (
-        mut velocity,
-        mut movement_velocity,
-        movement_acceleration,
-        movement_damping,
-        move_vector,
-        children,
-    ) = player.into_inner();
-    movement_velocity.0 += move_vector.0.x * movement_acceleration.0 * dt;
-    movement_velocity.0 *= 1.0 / (1.0 + movement_damping.0 * dt);
+    let (mut velocity, mut weapon_velocity, input_velocity, damping, move_vector) =
+        player.into_inner();
 
-    let weapon_velocity = children
-        .map(|children| {
-            weapons
-                .iter_many(children)
-                .map(|velocity| velocity.0)
-                .sum::<Vec2>()
-        })
-        .unwrap_or_default();
-
-    velocity.x = movement_velocity.0 + weapon_velocity.x;
-    velocity.y += weapon_velocity.y;
+    weapon_velocity.0 *= 1.0 / (1.0 + damping.0 * dt);
+    let input_movement = input_velocity.0 * move_vector.0.x;
+    if weapon_velocity.0.x.abs() < input_velocity.0 && move_vector.0.x != 0.0 {
+        velocity.x = input_movement;
+    } else {
+        velocity.x = weapon_velocity.0.x;
+    }
+    if weapon_velocity.0.y.abs() > 200.0 {
+        velocity.y = weapon_velocity.0.y;
+    }
 }
 
 #[derive(InputAction)]

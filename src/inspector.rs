@@ -18,7 +18,6 @@
 //! - `/setdoor ident`: assigns the level's [`Door`] to `ident`.
 //! - `/destroy`: crates a new [`MustDestroy`] [`Key`].
 //! - `/keep`: crates a new [`MustKeep`] [`Key`].
-//! - `/door ident`: creates a new [`Door`] and [`DestructableKey`] leading to `ident`.
 //! - `/ammo usize`: set the [`MaxAmmo`] of the current weapon.
 
 use crate::{
@@ -306,6 +305,12 @@ fn select_weapon(
                     .entity(*player)
                     .despawn_children()
                     .with_child(weapon::GravityGun);
+            }
+            KeyCode::Digit4 => {
+                commands
+                    .entity(*player)
+                    .despawn_children()
+                    .with_child(weapon::Rocket);
             }
             _ => {}
         }

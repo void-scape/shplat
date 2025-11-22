@@ -1,6 +1,6 @@
 use crate::{
     level::{Layer, Serialize, Transient},
-    player::{AimVector, Attack, Grounded, Player},
+    player::{AimVector, Attack, Grounded, Player, WeaponVelocity},
 };
 use avian2d::prelude::*;
 use bevy::{
@@ -17,49 +17,14 @@ use std::f32::consts::PI;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, despawn_bullets)
-        .add_systems(
-            FixedPostUpdate,
-            weapon_velocity
-                .in_set(WeaponSystems)
-                .in_set(PhysicsSystems::Last),
-        )
         .add_tween_systems(component_tween_system::<BulletVelocityLength>())
         .add_observer(reload)
         .add_observer(insert_fire)
         .add_observer(remove_fire)
         .add_observer(shotgun)
         .add_observer(assault_rifle)
-        .add_observer(gravity_gun);
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-pub struct WeaponSystems;
-
-#[derive(Default, Component)]
-pub struct WeaponAcceleration(pub Vec2);
-
-#[derive(Default, Component)]
-pub struct WeaponVelocity(pub Vec2);
-
-#[derive(Component)]
-pub struct WeaponDamping(pub Vec2);
-
-impl Default for WeaponDamping {
-    fn default() -> Self {
-        Self(Vec2::new(5.0, 50.0))
-    }
-}
-
-fn weapon_velocity(
-    time: Res<Time>,
-    mut weapons: Query<(&mut WeaponVelocity, &mut WeaponAcceleration, &WeaponDamping)>,
-) {
-    let dt = time.delta_secs();
-    for (mut velocity, mut acceleration, damping) in weapons.iter_mut() {
-        velocity.0 += acceleration.0 * dt;
-        velocity.0 *= 1.0 / (1.0 + damping.0 * dt);
-        acceleration.0 = Vec2::ZERO;
-    }
+        .add_observer(gravity_gun)
+        .add_observer(rocket);
 }
 
 #[derive(Component, Reflect)]
@@ -110,9 +75,6 @@ fn remove_fire(insert: On<Insert, FireWeapon>, mut commands: Commands) {
     Serialize,
     // TODO: move
     SelectedWeapon,
-    WeaponAcceleration,
-    WeaponVelocity,
-    WeaponDamping
 )]
 #[reflect(Component)]
 pub struct Weapon;
@@ -129,16 +91,15 @@ pub struct Shotgun;
 fn shotgun(
     _fire: On<Insert, FireWeapon>,
     mut commands: Commands,
-    player: Single<(&mut LinearVelocity, &GlobalTransform, &AimVector), With<Player>>,
-    mut velocity: Single<&mut WeaponVelocity, (With<Shotgun>, With<SelectedWeapon>)>,
+    player: Single<(&mut WeaponVelocity, &GlobalTransform, &AimVector), With<Player>>,
+    _shotgun: Single<(), (With<Shotgun>, With<SelectedWeapon>)>,
     mut rng: Single<&mut WyRand, With<GlobalRng>>,
 ) {
     let (mut player_velocity, player_transform, aim_vector) = player.into_inner();
 
     let dir = -aim_vector.0;
-    let force = dir * 800.0;
-    velocity.0 += force;
-    player_velocity.0.y = 0.0;
+    let force = dir * 2_000.0;
+    player_velocity.0 += force;
 
     for _ in 0..12 {
         let velocity = random_direction_in_arc(aim_vector.0, 0.9, &mut rng);
@@ -171,18 +132,16 @@ pub struct AssaultRifle;
 
 fn assault_rifle(
     _fire: On<Insert, FireWeapon>,
-    mut velocity: Single<&mut WeaponVelocity, (With<AssaultRifle>, With<SelectedWeapon>)>,
-    player: Single<(&mut LinearVelocity, &GlobalTransform, &AimVector), With<Player>>,
     mut commands: Commands,
+    player: Single<(&mut WeaponVelocity, &GlobalTransform, &AimVector), With<Player>>,
+    _assault_rifle: Single<(), (With<AssaultRifle>, With<SelectedWeapon>)>,
     mut rng: Single<&mut WyRand, With<GlobalRng>>,
 ) {
     let (mut player_velocity, player_transform, aim_vector) = player.into_inner();
 
     let dir = -aim_vector.0;
     let force = dir * 500.0;
-    velocity.0 += force;
-
-    player_velocity.y = 0.0;
+    player_velocity.0 += force;
 
     let velocity = random_direction_in_arc(aim_vector.0, PI * 0.1, &mut rng);
     let starting_velocity = rng.random_range(1_000.0..1_300.0);
@@ -220,6 +179,59 @@ fn gravity_gun(
     } else {
         commands.entity(*player).insert(Player::ground_caster());
     }
+}
+
+#[derive(Component, Reflect)]
+#[require(Weapon, MaxAmmo(1), Name::new("Rocket"))]
+#[reflect(Component)]
+pub struct Rocket;
+
+fn rocket(
+    _fire: On<Insert, FireWeapon>,
+    mut commands: Commands,
+    player: Single<(&GlobalTransform, &AimVector), With<Player>>,
+    _rocket: Single<(), (With<Rocket>, With<SelectedWeapon>)>,
+) {
+    let (player_transform, aim_vector) = player.into_inner();
+    let dir = aim_vector.0;
+    let velocity = dir * 1_000.0;
+
+    commands
+        .spawn((
+            Bullet,
+            RocketBullet,
+            LinearVelocity(velocity),
+            Transform::from_translation(player_transform.translation().xy().extend(0.0)),
+            Collider::circle(5.0),
+            Sprite::from_color(Color::WHITE, Vec2::splat(10.0)),
+            GravityScale(0.5),
+            CollisionEventsEnabled,
+        ))
+        .observe(rocket_bullet);
+}
+
+#[derive(Component)]
+pub struct RocketBullet;
+
+fn rocket_bullet(
+    start: On<CollisionStart>,
+    mut commands: Commands,
+    player: Single<(&mut WeaponVelocity, &GlobalTransform), With<Player>>,
+    _rocket: Single<(), (With<Rocket>, With<SelectedWeapon>)>,
+    transforms: Query<&GlobalTransform>,
+) -> Result {
+    let (mut velocity, player_transform) = player.into_inner();
+    let transform = transforms.get(start.collider1)?;
+    let diff = transform.translation().xy() - player_transform.translation().xy();
+    let dist = diff.length();
+    let angle = diff.normalize_or(Vec2::NEG_Y);
+
+    let falloff_rate = 0.003;
+    let force = 5_000.0 * (-falloff_rate * (dist - 300.0).max(0.0)).exp();
+    velocity.0 = velocity.0.max(-angle * force);
+
+    commands.entity(start.collider1).despawn();
+    Ok(())
 }
 
 #[derive(Component)]
