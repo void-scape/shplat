@@ -12,12 +12,13 @@ use bevy_tween::prelude::EaseKind;
 pub fn plugin(app: &mut App) {
     app.add_input_context::<Player>()
         .add_systems(
-            Update,
-            (
-                (grounded, apply_movement.after(WeaponSystems)).chain(),
-                aim_with_mouse_input,
-            ),
+            FixedPostUpdate,
+            (grounded, apply_movement)
+                .chain()
+                .in_set(PhysicsSystems::Last)
+                .after(WeaponSystems),
         )
+        .add_systems(Update, aim_with_mouse_input)
         .add_observer(inject_bindings)
         .add_observer(handle_movement)
         .add_observer(stop_movement)

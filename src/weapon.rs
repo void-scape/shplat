@@ -15,17 +15,20 @@ use bevy_tween::{
 use rand::Rng;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(
-        Update,
-        (weapon_velocity, despawn_bullets).in_set(WeaponSystems),
-    )
-    .add_tween_systems(component_tween_system::<BulletVelocityLength>())
-    .add_observer(reload)
-    .add_observer(insert_fire)
-    .add_observer(remove_fire)
-    .add_observer(shotgun)
-    .add_observer(assault_rifle)
-    .add_observer(gravity_gun);
+    app.add_systems(Update, despawn_bullets)
+        .add_systems(
+            FixedPostUpdate,
+            weapon_velocity
+                .in_set(WeaponSystems)
+                .in_set(PhysicsSystems::Last),
+        )
+        .add_tween_systems(component_tween_system::<BulletVelocityLength>())
+        .add_observer(reload)
+        .add_observer(insert_fire)
+        .add_observer(remove_fire)
+        .add_observer(shotgun)
+        .add_observer(assault_rifle)
+        .add_observer(gravity_gun);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
