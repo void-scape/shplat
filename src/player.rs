@@ -1,5 +1,5 @@
 use crate::{
-    Serialize,
+    level::{Layer, Serialize, Wall},
     weapon::{WeaponSystems, WeaponVelocity},
 };
 use avian2d::prelude::*;
@@ -18,7 +18,6 @@ pub fn plugin(app: &mut App) {
                 aim_with_mouse_input,
             ),
         )
-        // .add_tween_systems(component_tween_system::<AccelerationTween>())
         .add_observer(inject_bindings)
         .add_observer(handle_movement)
         .add_observer(stop_movement)
@@ -42,8 +41,10 @@ pub fn plugin(app: &mut App) {
     Collider = Self::collider(),
     ShapeCaster = Self::ground_caster(),
     Friction = Friction::ZERO.with_combine_rule(CoefficientCombine::Min),
-    Restitution = Restitution::ZERO.with_combine_rule(CoefficientCombine::Min),
+    // Bounce???
+    Restitution::PERFECTLY_ELASTIC,
     ColliderDensity(2.0),
+    CollisionLayers::new(Layer::Player, Layer::Default.to_bits() | Layer::Wall.to_bits()),
     // Input Components
     OrientationMethod,
     MoveVector,
@@ -51,7 +52,7 @@ pub fn plugin(app: &mut App) {
     // Physics Parameters
     InputVelocity,
     InputDamping(30.0),
-    InputAcceleration(7000.0),
+    InputAcceleration(9000.0),
     JumpImpulse {
         impulse_range: Vec2::new(500.0, 700.0),
         duration: 0.2,
@@ -84,9 +85,10 @@ pub struct Grounded;
 fn grounded(
     mut commands: Commands,
     player: Single<(Entity, &ShapeHits, Has<Grounded>), With<Player>>,
+    walls: Query<&Wall>,
 ) {
     let (entity, hits, has_grounded) = player.into_inner();
-    let is_grounded = hits.iter().next().is_some();
+    let is_grounded = hits.iter().any(|data| walls.contains(data.entity));
     if is_grounded && !has_grounded {
         commands.entity(entity).insert(Grounded);
     } else if !is_grounded && has_grounded {

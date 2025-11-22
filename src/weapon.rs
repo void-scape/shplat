@@ -1,22 +1,31 @@
 use crate::{
-    Serialize,
+    level::{Layer, Serialize},
     player::{AimVector, Attack, Grounded, Player},
 };
-use avian2d::prelude::Gravity;
+use avian2d::prelude::*;
 use bevy::{
     ecs::{lifecycle::HookContext, world::DeferredWorld},
     prelude::*,
 };
 use bevy_enhanced_input::prelude::Fire;
+use bevy_rand::{global::GlobalRng, prelude::WyRand};
+use bevy_tween::{
+    bevy_time_runner::TimeRunnerEnded, component_tween_system, prelude::*, tween::AnimationTarget,
+};
+use rand::Rng;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, weapon_velocity.in_set(WeaponSystems))
-        .add_observer(reload)
-        .add_observer(insert_fire)
-        .add_observer(remove_fire)
-        .add_observer(shotgun)
-        .add_observer(assault_rifle)
-        .add_observer(gravity_gun);
+    app.add_systems(
+        Update,
+        (weapon_velocity, despawn_bullets).in_set(WeaponSystems),
+    )
+    .add_tween_systems(component_tween_system::<BulletVelocityLength>())
+    .add_observer(reload)
+    .add_observer(insert_fire)
+    .add_observer(remove_fire)
+    .add_observer(shotgun)
+    .add_observer(assault_rifle)
+    .add_observer(gravity_gun);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
@@ -33,7 +42,7 @@ pub struct WeaponDamping(pub Vec2);
 
 impl Default for WeaponDamping {
     fn default() -> Self {
-        Self(Vec2::new(10.0, 120.0))
+        Self(Vec2::new(5.0, 50.0))
     }
 }
 
@@ -76,13 +85,16 @@ fn insert_fire(
     _attack: On<Fire<Attack>>,
     mut commands: Commands,
     weapon: Single<(Entity, &mut Ammo), With<SelectedWeapon>>,
+    is_grounded: Single<Has<Grounded>, With<Player>>,
 ) {
     let (entity, mut ammo) = weapon.into_inner();
-    if ammo.0 == 0 {
+    if !*is_grounded && ammo.0 == 0 {
         return;
     }
     commands.entity(entity).insert(FireWeapon);
-    ammo.0 -= 1;
+    if !*is_grounded {
+        ammo.0 -= 1;
+    }
 }
 
 fn remove_fire(insert: On<Insert, FireWeapon>, mut commands: Commands) {
@@ -112,12 +124,39 @@ pub struct Shotgun;
 
 fn shotgun(
     _fire: On<Insert, FireWeapon>,
-    aim_vector: Single<&AimVector, With<Player>>,
+    mut commands: Commands,
+    player: Single<(&GlobalTransform, &AimVector), With<Player>>,
     mut velocity: Single<&mut WeaponVelocity, (With<Shotgun>, With<SelectedWeapon>)>,
+    mut rng: Single<&mut WyRand, With<GlobalRng>>,
 ) {
+    let (player_transform, aim_vector) = player.into_inner();
+
     let dir = -aim_vector.0;
     let force = dir * 1_000.0;
     velocity.0 += force;
+
+    for _ in 0..12 {
+        let velocity = random_direction_in_arc(aim_vector.0, 0.9, &mut rng);
+        let starting_velocity = rng.random_range(1_000.0..1_300.0);
+
+        let target = AnimationTarget.into_target();
+        commands
+            .spawn((
+                Bullet,
+                AnimationTarget,
+                LinearVelocity(velocity),
+                Transform::from_translation(player_transform.translation().xy().extend(0.0)),
+                Collider::circle(5.0),
+                Sprite::from_color(Color::WHITE, Vec2::splat(10.0)),
+                GravityScale(0.0),
+            ))
+            .animation()
+            .insert_tween_here(
+                Duration::from_secs_f32(0.8),
+                EaseKind::QuadraticOut,
+                target.with(bullet_velocity(starting_velocity, 100.0)),
+            );
+    }
 }
 
 #[derive(Component, Reflect)]
@@ -152,5 +191,80 @@ fn gravity_gun(
         commands.entity(*player).insert(Player::ceiling_caster());
     } else {
         commands.entity(*player).insert(Player::ground_caster());
+    }
+}
+
+#[derive(Component)]
+#[require(
+    RigidBody::Dynamic,
+    LockedAxes::ROTATION_LOCKED,
+    Restitution {
+        coefficient: 0.1,
+        combine_rule: CoefficientCombine::Average,
+    },
+    CollisionLayers::new(Layer::Bullet, Layer::Default.to_bits() | Layer::Wall.to_bits()),
+)]
+pub struct Bullet;
+
+#[derive(Component)]
+struct BulletVelocityLength {
+    start: f32,
+    end: f32,
+}
+
+fn bullet_velocity(start: f32, end: f32) -> BulletVelocityLength {
+    BulletVelocityLength { start, end }
+}
+
+impl Interpolator for BulletVelocityLength {
+    type Item = LinearVelocity;
+    fn interpolate(
+        &self,
+        item: &mut Self::Item,
+        value: interpolate::CurrentValue,
+        _: interpolate::PreviousValue,
+    ) {
+        if item.0 != Vec2::ZERO {
+            let new_length = self.start.lerp(self.end, value);
+            item.0 = item.0.normalize() * new_length;
+        }
+    }
+}
+
+fn despawn_bullets(
+    mut commands: Commands,
+    mut reader: MessageReader<TimeRunnerEnded>,
+    bullets: Query<(), With<Bullet>>,
+) {
+    for event in reader.read() {
+        if event.is_completed() && bullets.contains(event.entity) {
+            commands.entity(event.entity).despawn();
+        }
+    }
+}
+
+/// Returns a random unit vector whose direction lies within an arc of `arc_radians`
+/// centered around the given direction vector.
+///
+/// `dir` does not have to be normalized; this function normalizes it internally.
+/// `arc_radians` is the full width of the arc (e.g. PI/4 is ±PI/8 around dir).
+fn random_direction_in_arc(dir: Vec2, arc_radians: f32, rng: &mut impl Rng) -> Vec2 {
+    // Normalize the input direction
+    let dir = dir.normalize_or_zero();
+
+    // Convert direction to angle
+    let base_angle = dir.y.atan2(dir.x); // atan2(y, x)
+
+    // Half-width of the arc
+    let half_arc = arc_radians * 0.5;
+
+    // Sample angle uniformly in [base_angle - half_arc, base_angle + half_arc]
+    let offset: f32 = rng.random_range(-half_arc..=half_arc);
+    let final_angle = base_angle + offset;
+
+    // Convert back to a unit vector
+    Vec2 {
+        x: final_angle.cos(),
+        y: final_angle.sin(),
     }
 }

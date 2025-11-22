@@ -1157,10 +1157,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_prng"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e09a912cf0dd6c2d1a9a03dc9d6b022e3a93a2e78af0b149b5d84d6671d9296e"
+dependencies = [
+ "bevy_ecs",
+ "rand_chacha",
+ "rand_core",
+ "wyrand",
+]
+
+[[package]]
 name = "bevy_ptr"
 version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17d24d7906c7de556033168b3485de36c59049fbaef0c2c44c715a23e0329b10"
+
+[[package]]
+name = "bevy_rand"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0306893d65f832c5fbc86718d80602d80bea14f412c638b77f954a5bbea5a783"
+dependencies = [
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_prng",
+ "getrandom",
+ "rand_core",
+]
 
 [[package]]
 name = "bevy_reflect"
@@ -4587,8 +4612,10 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_egui",
  "bevy_enhanced_input",
+ "bevy_rand",
  "bevy_simple_text_input",
  "bevy_tween",
+ "rand",
 ]
 
 [[package]]
@@ -5986,6 +6013,15 @@ name = "writeable"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9edde0db4769d2dc68579893f2306b26c6ecfbe0ef499b013d731b7b9247e0b9"
+
+[[package]]
+name = "wyrand"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15e0359b0b8d9cdef235a1fd4a8c5d02e4c9204e9fac861c14c229a8e803d1a6"
+dependencies = [
+ "rand_core",
+]
 
 [[package]]
 name = "x11-dl"
