@@ -3,7 +3,7 @@ use crate::inspector;
 use crate::{HEIGHT, WIDTH, player::Player, weapon::Bullet};
 use avian2d::prelude::{
     Collider, ColliderConstructor, CollisionEventsEnabled, CollisionLayers, CollisionStart,
-    Gravity, LayerMask, LinearVelocity, PhysicsLayer, RigidBody, Sensor,
+    Gravity, LayerMask, LinearVelocity, PhysicsLayer, RigidBody, Sensor, WakeBody,
 };
 use bevy::{
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
@@ -25,12 +25,26 @@ pub fn plugin(app: &mut App) {
                 #[cfg(feature = "debug")]
                 user_serialize_level,
                 user_reset_level,
+                wake_bodies_after_gravity_change,
             ),
         )
         .add_observer(killbox)
         .add_observer(door)
         .add_observer(must_keep)
         .add_observer(destroy_key);
+}
+
+// TODO: submit Avian issue
+fn wake_bodies_after_gravity_change(
+    mut commands: Commands,
+    gravity: Res<Gravity>,
+    bodies: Query<Entity, With<RigidBody>>,
+) {
+    if gravity.is_changed() {
+        for entity in bodies.iter() {
+            commands.queue(WakeBody(entity));
+        }
+    }
 }
 
 #[derive(Default, PhysicsLayer, Component)]
