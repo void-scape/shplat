@@ -74,7 +74,7 @@ pub struct Level(pub String);
 
 impl Default for Level {
     fn default() -> Self {
-        Self("gravity_1".to_string())
+        Self("shotgun_1".to_string())
     }
 }
 

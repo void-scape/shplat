@@ -128,15 +128,16 @@ pub struct Shotgun;
 fn shotgun(
     _fire: On<Insert, FireWeapon>,
     mut commands: Commands,
-    player: Single<(&GlobalTransform, &AimVector), With<Player>>,
+    player: Single<(&mut LinearVelocity, &GlobalTransform, &AimVector), With<Player>>,
     mut velocity: Single<&mut WeaponVelocity, (With<Shotgun>, With<SelectedWeapon>)>,
     mut rng: Single<&mut WyRand, With<GlobalRng>>,
 ) {
-    let (player_transform, aim_vector) = player.into_inner();
+    let (mut player_velocity, player_transform, aim_vector) = player.into_inner();
 
     let dir = -aim_vector.0;
-    let force = dir * 1_000.0;
+    let force = dir * 800.0;
     velocity.0 += force;
+    player_velocity.0.y = 0.0;
 
     for _ in 0..12 {
         let velocity = random_direction_in_arc(aim_vector.0, 0.9, &mut rng);
