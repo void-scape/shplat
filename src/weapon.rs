@@ -1,5 +1,5 @@
 use crate::{
-    level::{Layer, Serialize},
+    level::{Layer, Serialize, Transient},
     player::{AimVector, Attack, Grounded, Player},
 };
 use avian2d::prelude::*;
@@ -196,6 +196,7 @@ fn gravity_gun(
 
 #[derive(Component)]
 #[require(
+    Transient,
     RigidBody::Dynamic,
     LockedAxes::ROTATION_LOCKED,
     Restitution {

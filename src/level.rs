@@ -3,7 +3,7 @@ use crate::inspector;
 use crate::{HEIGHT, WIDTH, player::Player, weapon::Bullet};
 use avian2d::prelude::{
     Collider, ColliderConstructor, CollisionEventsEnabled, CollisionLayers, CollisionStart,
-    LayerMask, PhysicsLayer, RigidBody, Sensor,
+    Gravity, LayerMask, LinearVelocity, PhysicsLayer, RigidBody, Sensor,
 };
 use bevy::{
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
@@ -42,16 +42,25 @@ pub enum Layer {
     Wall,
 }
 
+/// Marks a level entity for level serialization.
+///
+/// [`Serialize`] and [`Transient`] entities are cleared in [`reset_level`].
 #[derive(Default, Clone, Copy, Component, Reflect)]
 #[reflect(Component)]
 pub struct Serialize;
+
+/// Marks a level entity as non-serializable.
+///
+/// [`Serialize`] and [`Transient`] entities are cleared in [`reset_level`].
+#[derive(Default, Component)]
+pub struct Transient;
 
 #[derive(Resource)]
 pub struct Level(pub String);
 
 impl Default for Level {
     fn default() -> Self {
-        Self("shotgun_1".to_string())
+        Self("gravity_1".to_string())
     }
 }
 
@@ -86,8 +95,12 @@ fn killbox(
     player: Single<Entity, With<Player>>,
     killboxes: Query<&KillBox>,
 ) {
-    if killboxes.contains(enter.collider1) && enter.collider2 == *player {
-        commands.run_system_cached(reset_level);
+    if killboxes.contains(enter.collider1) {
+        if enter.collider2 == *player {
+            commands.run_system_cached(reset_level);
+        } else {
+            commands.entity(enter.collider2).despawn();
+        }
     }
 }
 
@@ -140,8 +153,8 @@ pub struct KeyOf(pub Entity);
     Serialize,
     Transform,
     RigidBody::Static,
-    Sensor,
     CollisionEventsEnabled,
+    LinearVelocity::default(),
     SerializedColliderConstructor = rectangle(20.0, 20.0),
     DebugPickingColor::new(YELLOW),
 )]
@@ -248,6 +261,7 @@ pub fn serialize_level(
         .allow_component::<Children>()
         .allow_component::<ChildOf>()
         .allow_component::<SelectedWeapon>()
+        .allow_component::<MaxAmmo>()
         .allow_component::<Shotgun>()
         .allow_component::<AssaultRifle>()
         .allow_component::<GravityGun>()
@@ -299,7 +313,7 @@ fn remove_dynamic_scene_root(
 
 pub fn despawn_level(
     mut commands: Commands,
-    entities: Query<Entity, (With<Serialize>, Without<ChildOf>)>,
+    entities: Query<Entity, (Or<(With<Serialize>, With<Transient>)>, Without<ChildOf>)>,
 ) {
     for entity in entities.iter() {
         commands.entity(entity).despawn();
@@ -321,7 +335,9 @@ fn user_reset_level(
     commands.run_system_cached(reset_level);
 }
 
-pub fn reset_level(mut commands: Commands) {
+pub fn reset_level(mut commands: Commands, mut gravity: ResMut<Gravity>) {
+    let signum = gravity.0.signum();
+    gravity.0 *= -signum;
     commands.run_system_cached(despawn_level);
     commands.run_system_cached(deserialize_level);
 }

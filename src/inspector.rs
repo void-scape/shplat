@@ -29,7 +29,7 @@ use crate::{
     player::Player,
     weapon::{self, Ammo, MaxAmmo, SelectedWeapon, Weapon},
 };
-use avian2d::prelude::RigidBody;
+use avian2d::prelude::{RigidBody, Sensor};
 use bevy::{
     log::{
         BoxedLayer,
@@ -371,14 +371,14 @@ fn parse_commands(
         } else if event.value == "/keep" {
             if let Some(door) = &door {
                 info!("creating keep lock");
-                commands.spawn((Key, MustKeep, KeyOf(door.0)));
+                commands.spawn((Key, Sensor, MustKeep, KeyOf(door.0)));
             } else {
                 error!("there is not door to make a lock for");
             }
         } else if event.value == "/destroy" {
             if let Some(door) = &door {
                 info!("creating destroy lock");
-                commands.spawn((Key, MustDestroy, KeyOf(door.0)));
+                commands.spawn((Key, Sensor, MustDestroy, KeyOf(door.0)));
             } else {
                 error!("there is not door to make a lock for");
             }
