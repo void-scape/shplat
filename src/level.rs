@@ -54,6 +54,7 @@ pub enum Layer {
     Player,
     Bullet,
     Wall,
+    KillBox,
 }
 
 /// Marks a level entity for level serialization.
@@ -95,6 +96,7 @@ pub struct Wall;
 #[derive(Clone, Copy, Component, Reflect)]
 #[require(
     Serialize,
+    CollisionLayers::new(Layer::KillBox, LayerMask::ALL),
     RigidBody::Static,
     Sensor,
     CollisionEventsEnabled,

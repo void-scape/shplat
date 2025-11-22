@@ -13,6 +13,7 @@ use bevy_tween::{
     bevy_time_runner::TimeRunnerEnded, component_tween_system, prelude::*, tween::AnimationTarget,
 };
 use rand::Rng;
+use std::f32::consts::PI;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, despawn_bullets)
@@ -164,18 +165,41 @@ fn shotgun(
 }
 
 #[derive(Component, Reflect)]
-#[require(Weapon, MaxAmmo(4), Name::new("Assault Rifle"))]
+#[require(Weapon, MaxAmmo(3), Name::new("Assault Rifle"))]
 #[reflect(Component)]
 pub struct AssaultRifle;
 
 fn assault_rifle(
     _fire: On<Insert, FireWeapon>,
-    aim_vector: Single<&AimVector, With<Player>>,
     mut velocity: Single<&mut WeaponVelocity, (With<AssaultRifle>, With<SelectedWeapon>)>,
+    player: Single<(&mut LinearVelocity, &GlobalTransform, &AimVector), With<Player>>,
+    mut commands: Commands,
+    mut rng: Single<&mut WyRand, With<GlobalRng>>,
 ) {
+    let (mut player_velocity, player_transform, aim_vector) = player.into_inner();
+
     let dir = -aim_vector.0;
-    let force = dir * 800.0;
+    let force = dir * 500.0;
     velocity.0 += force;
+
+    player_velocity.y = 0.0;
+
+    let velocity = random_direction_in_arc(aim_vector.0, PI * 0.1, &mut rng);
+    let starting_velocity = rng.random_range(1_000.0..1_300.0);
+
+    commands
+        .spawn((
+            Bullet,
+            LinearVelocity(velocity * starting_velocity),
+            Transform::from_translation(player_transform.translation().xy().extend(0.0)),
+            Collider::circle(5.0),
+            Sprite::from_color(Color::WHITE, Vec2::splat(10.0)),
+            GravityScale(0.0),
+            CollisionEventsEnabled,
+        ))
+        .observe(|target: On<CollisionStart>, mut commands: Commands| {
+            commands.entity(target.collider1).despawn();
+        });
 }
 
 #[derive(Component, Reflect)]

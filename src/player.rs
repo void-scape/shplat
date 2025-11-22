@@ -45,7 +45,7 @@ pub fn plugin(app: &mut App) {
     // Bounce???
     Restitution::PERFECTLY_ELASTIC,
     ColliderDensity(2.0),
-    CollisionLayers::new(Layer::Player, Layer::Default.to_bits() | Layer::Wall.to_bits()),
+    CollisionLayers::new(Layer::Player, [Layer::Default, Layer::Wall, Layer::KillBox]),
     // Input Components
     OrientationMethod,
     MoveVector,
@@ -183,12 +183,12 @@ fn inject_bindings(
         (
             Action::<Jump>::new(),
             Hold::new(jump_impulse.duration),
-            bindings![KeyCode::Space, KeyCode::ShiftLeft],
+            bindings![KeyCode::Space, KeyCode::ShiftLeft, GamepadButton::South],
         ),
         (
             Action::<Attack>::new(),
             Press::default(),
-            bindings![MouseButton::Left],
+            bindings![MouseButton::Left, GamepadButton::RightTrigger2],
         ),
     ]));
     Ok(())
