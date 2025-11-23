@@ -11,14 +11,13 @@
 //! - `<cr>v`: clones the selected entity under the cursor.
 //!
 //! ## Terminal
-//! - `/mk ident`: makes a new level with `ident`.
-//! - `/ld ident`: loads the level with `ident`.
-//! - `/cp ident`: copies the current state into a new level with `ident`.
-//! - `/door ident`: creates a new [`Door`] and [`DestructableKey`] leading to `ident`.
-//! - `/setdoor ident`: assigns the level's [`Door`] to `ident`.
-//! - `/destroy`: crates a new [`MustDestroy`] [`Key`].
-//! - `/keep`: crates a new [`MustKeep`] [`Key`].
-//! - `/ammo usize`: set the [`MaxAmmo`] of the current weapon.
+//! - `l ident`: loads the level with `ident`.
+//! - `c ident`: copies the current state into a new level with `ident`.
+//! - `door ident`: creates a new [`Door`] and [`DestructableKey`] leading to `ident`.
+//! - `setdoor ident`: assigns the level's [`Door`] to `ident`.
+//! - `destroy`: crates a new [`MustDestroy`] [`Key`].
+//! - `keep`: crates a new [`MustKeep`] [`Key`].
+//! - `ammo usize`: set the [`MaxAmmo`] of the current weapon.
 
 use crate::{
     level::{
@@ -312,6 +311,12 @@ fn select_weapon(
                     .despawn_children()
                     .with_child(weapon::Rocket);
             }
+            KeyCode::Digit5 => {
+                commands
+                    .entity(*player)
+                    .despawn_children()
+                    .with_child(weapon::Laser);
+            }
             _ => {}
         }
     }
@@ -348,46 +353,40 @@ fn parse_commands(
     mut door: Option<Single<(Entity, &mut Door)>>,
 ) {
     for event in events.read() {
-        if let Some(level_ident) = event.value.strip_prefix("/mk ") {
-            info!("creating {level_ident}");
-            level.0 = level_ident.to_string();
-            commands.run_system_cached(level::despawn_level);
-            commands.run_system_cached(level::new_level);
-            commands.run_system_cached(level::serialize_level);
-        } else if let Some(level_ident) = event.value.strip_prefix("/ld ") {
+        if let Some(level_ident) = event.value.strip_prefix("l ") {
             info!("loading {level_ident}");
             level.0 = level_ident.to_string();
             commands.run_system_cached(level::reset_level);
-        } else if let Some(level_ident) = event.value.strip_prefix("/cp ") {
+        } else if let Some(level_ident) = event.value.strip_prefix("c ") {
             info!("saving current state to {level_ident}");
             level.0 = level_ident.to_string();
             commands.run_system_cached(level::serialize_level);
             commands.run_system_cached(level::reset_level);
-        } else if let Some(level_ident) = event.value.strip_prefix("/door ") {
+        } else if let Some(level_ident) = event.value.strip_prefix("door ") {
             info!("creating key and door to {level_ident}");
             commands.spawn(Door(level_ident.to_string()));
-        } else if let Some(level_ident) = event.value.strip_prefix("/setdoor ") {
+        } else if let Some(level_ident) = event.value.strip_prefix("setdoor ") {
             if let Some(door) = &mut door {
                 info!("setting door to {level_ident}");
                 door.1.0 = level_ident.to_string();
             } else {
                 error!("there is not door to set {level_ident} to");
             }
-        } else if event.value == "/keep" {
+        } else if event.value == "keep" {
             if let Some(door) = &door {
                 info!("creating keep lock");
                 commands.spawn((Key, Sensor, MustKeep, KeyOf(door.0)));
             } else {
                 error!("there is not door to make a lock for");
             }
-        } else if event.value == "/destroy" {
+        } else if event.value == "destroy" {
             if let Some(door) = &door {
                 info!("creating destroy lock");
                 commands.spawn((Key, Sensor, MustDestroy, KeyOf(door.0)));
             } else {
                 error!("there is not door to make a lock for");
             }
-        } else if let Some(value) = event.value.strip_prefix("/ammo ") {
+        } else if let Some(value) = event.value.strip_prefix("ammo ") {
             if let Some(selected_weapon) = selected_weapon.as_mut() {
                 let Ok(amount) = value.parse::<usize>() else {
                     error!("{value} is not a usize");
@@ -398,7 +397,17 @@ fn parse_commands(
                 selected_weapon.1.0 = amount;
             }
         } else {
-            error!("[Usage] /[mk|ld|cp] lvl-ident");
+            error!(
+                r#"
+- `l ident`: loads the level with `ident`.
+- `c ident`: copies the current state into a new level with `ident`.
+- `door ident`: creates a new [`Door`] and [`DestructableKey`] leading to `ident`.
+- `setdoor ident`: assigns the level's [`Door`] to `ident`.
+- `destroy`: crates a new [`MustDestroy`] [`Key`].
+- `keep`: crates a new [`MustKeep`] [`Key`].
+- `ammo usize`: set the [`MaxAmmo`] of the current weapon.
+"#
+            );
         }
     }
 }
@@ -428,9 +437,6 @@ fn toggle_term(
         _ => {
             commands.entity(entity).insert(DisableInput);
             input_inactive.0 = false;
-            if slash {
-                text_value.0.push('/');
-            }
             Display::Flex
         }
     };

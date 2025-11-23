@@ -1,5 +1,5 @@
 use crate::{
-    level::{Layer, Serialize, Transient},
+    level::{Key, Layer, Serialize, Transient},
     player::{AimVector, Attack, Grounded, Player, WeaponVelocity},
 };
 use avian2d::prelude::*;
@@ -16,7 +16,7 @@ use rand::Rng;
 use std::f32::consts::PI;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, despawn_bullets)
+    app.add_systems(Update, (despawn_bullets, laser))
         .add_tween_systems(component_tween_system::<BulletVelocityLength>())
         .add_observer(reload)
         .add_observer(insert_fire)
@@ -232,6 +232,37 @@ fn rocket_bullet(
 
     commands.entity(start.collider1).despawn();
     Ok(())
+}
+
+#[derive(Component, Reflect)]
+#[require(Weapon, Name::new("Laser"))]
+#[component(on_insert = Laser::insert)]
+#[reflect(Component)]
+pub struct Laser;
+
+impl Laser {
+    fn insert(mut world: DeferredWorld, ctx: HookContext) {
+        let mut shape_caster = ShapeCaster::new(Collider::circle(0.5), Vec2::ZERO, 0.0, Dir2::X);
+        shape_caster.query_filter = shape_caster
+            .query_filter
+            .with_mask([Layer::Wall, Layer::Key]);
+        world.commands().entity(ctx.entity).insert(shape_caster);
+    }
+}
+
+fn laser(
+    mut commands: Commands,
+    aim_vector: Single<&AimVector, With<Player>>,
+    laser: Single<(&mut ShapeCaster, &ShapeHits), (With<Laser>, With<SelectedWeapon>)>,
+    keys: Query<Entity, With<Key>>,
+) {
+    let (mut caster, hits) = laser.into_inner();
+    for entity in keys.iter_many(hits.iter().map(|data| data.entity)) {
+        commands.entity(entity).despawn();
+    }
+    if let Ok(direction) = Dir2::new(aim_vector.0) {
+        caster.direction = direction;
+    }
 }
 
 #[derive(Component)]

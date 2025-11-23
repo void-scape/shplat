@@ -1,6 +1,6 @@
 #[cfg(feature = "debug")]
 use crate::inspector;
-use crate::{HEIGHT, WIDTH, player::Player, weapon::Bullet};
+use crate::{player::Player, weapon::Bullet};
 use avian2d::prelude::{
     Collider, ColliderConstructor, CollisionEventsEnabled, CollisionLayers, CollisionStart,
     Gravity, LayerMask, LinearVelocity, PhysicsLayer, RigidBody, Sensor, WakeBody,
@@ -55,6 +55,7 @@ pub enum Layer {
     Bullet,
     Wall,
     KillBox,
+    Key,
 }
 
 /// Marks a level entity for level serialization.
@@ -75,7 +76,7 @@ pub struct Level(pub String);
 
 impl Default for Level {
     fn default() -> Self {
-        Self("rocket_1".to_string())
+        Self("laser_1".to_string())
     }
 }
 
@@ -128,6 +129,7 @@ fn killbox(
     Sensor,
     CollisionEventsEnabled,
     SerializedColliderConstructor = rectangle(20.0, 20.0),
+    CollisionLayers::new(Layer::Default, LayerMask::ALL),
     DebugPickingColor::new(GREEN),
 )]
 #[reflect(Component)]
@@ -173,6 +175,7 @@ pub struct KeyOf(pub Entity);
     LinearVelocity::default(),
     SerializedColliderConstructor = rectangle(20.0, 20.0),
     DebugPickingColor::new(YELLOW),
+    CollisionLayers::new(Layer::Key, LayerMask::ALL),
 )]
 #[reflect(Component)]
 pub struct Key;
@@ -282,6 +285,7 @@ pub fn serialize_level(
         .allow_component::<AssaultRifle>()
         .allow_component::<GravityGun>()
         .allow_component::<Rocket>()
+        .allow_component::<Laser>()
         .allow_component::<LevelGeometry>()
         .allow_component::<Door>()
         .allow_component::<MustDestroy>()
@@ -359,49 +363,49 @@ pub fn reset_level(mut commands: Commands, mut gravity: ResMut<Gravity>) {
     commands.run_system_cached(deserialize_level);
 }
 
-pub fn new_level(mut commands: Commands) {
-    commands.spawn((
-        Player,
-        Name::new("Player"),
-        Transform::from_xyz(-400.0, 0.0, 0.0),
-    ));
-    let child = commands
-        .spawn((
-            KillBox,
-            Transform::from_xyz(0.0, -200.0, 0.0),
-            rectangle(WIDTH / 10.0, 25.0),
-        ))
-        .id();
-    let mut entity = commands.spawn((
-        Serialize,
-        LevelGeometry,
-        Transform::default(),
-        Visibility::default(),
-        Name::new("Level Geometry"),
-    ));
-    entity.add_child(child);
-    entity.with_child((
-        Transform::from_xyz(0.0, -HEIGHT / 2.0, 0.0),
-        rectangle(WIDTH, 25.0),
-        Name::new("Bottom Wall"),
-        Wall,
-    ));
-    entity.with_child((
-        Transform::from_xyz(-WIDTH / 2.0, 0.0, 0.0),
-        rectangle(25.0, HEIGHT),
-        Name::new("Left Wall"),
-        Wall,
-    ));
-    entity.with_child((
-        Transform::from_xyz(WIDTH / 2.0, 0.0, 0.0),
-        rectangle(25.0, HEIGHT),
-        Name::new("Right Wall"),
-        Wall,
-    ));
-    entity.with_child((
-        Transform::from_xyz(0.0, HEIGHT / 2.0, 0.0),
-        rectangle(WIDTH, 25.0),
-        Name::new("Top Wall"),
-        Wall,
-    ));
-}
+// pub fn new_level(mut commands: Commands) {
+//     commands.spawn((
+//         Player,
+//         Name::new("Player"),
+//         Transform::from_xyz(-400.0, 0.0, 0.0),
+//     ));
+//     let child = commands
+//         .spawn((
+//             KillBox,
+//             Transform::from_xyz(0.0, -200.0, 0.0),
+//             rectangle(WIDTH / 10.0, 25.0),
+//         ))
+//         .id();
+//     let mut entity = commands.spawn((
+//         Serialize,
+//         LevelGeometry,
+//         Transform::default(),
+//         Visibility::default(),
+//         Name::new("Level Geometry"),
+//     ));
+//     entity.add_child(child);
+//     entity.with_child((
+//         Transform::from_xyz(0.0, -HEIGHT / 2.0, 0.0),
+//         rectangle(WIDTH, 25.0),
+//         Name::new("Bottom Wall"),
+//         Wall,
+//     ));
+//     entity.with_child((
+//         Transform::from_xyz(-WIDTH / 2.0, 0.0, 0.0),
+//         rectangle(25.0, HEIGHT),
+//         Name::new("Left Wall"),
+//         Wall,
+//     ));
+//     entity.with_child((
+//         Transform::from_xyz(WIDTH / 2.0, 0.0, 0.0),
+//         rectangle(25.0, HEIGHT),
+//         Name::new("Right Wall"),
+//         Wall,
+//     ));
+//     entity.with_child((
+//         Transform::from_xyz(0.0, HEIGHT / 2.0, 0.0),
+//         rectangle(WIDTH, 25.0),
+//         Name::new("Top Wall"),
+//         Wall,
+//     ));
+// }

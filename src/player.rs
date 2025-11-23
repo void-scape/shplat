@@ -38,8 +38,9 @@ pub fn plugin(app: &mut App) {
     Collider = Self::collider(),
     ShapeCaster = Self::ground_caster(),
     Friction = Friction::ZERO.with_combine_rule(CoefficientCombine::Min),
+    Restitution = Restitution::ZERO.with_combine_rule(CoefficientCombine::Min),
     // Bounce???
-    Restitution::PERFECTLY_ELASTIC,
+    // Restitution::PERFECTLY_ELASTIC,
     CollisionLayers::new(Layer::Player, [Layer::Default, Layer::Wall, Layer::KillBox]),
     // Input Components
     OrientationMethod,
@@ -119,9 +120,14 @@ fn aim_with_mouse_input(
     window: Single<&Window, With<PrimaryWindow>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     player: Single<(&mut AimVector, &GlobalTransform, &mut OrientationMethod), With<Player>>,
+    input_ctx: Single<&ContextActivity<Player>>,
     mut motion: MessageReader<MouseMotion>,
 ) {
     let (mut aim_vector, player_transform, mut orientation) = player.into_inner();
+    if !***input_ctx {
+        return;
+    }
+
     if let OrientationMethod::Stick = *orientation {
         if motion.read().last().is_none() {
             *orientation = OrientationMethod::Mouse;
