@@ -274,7 +274,7 @@ fn laser(
         coefficient: 0.1,
         combine_rule: CoefficientCombine::Average,
     },
-    CollisionLayers::new(Layer::Bullet, Layer::Default.to_bits() | Layer::Wall.to_bits()),
+    CollisionLayers::new(Layer::Bullet, Layer::Default.to_bits() | Layer::Wall.to_bits() | Layer::Key.to_bits()),
 )]
 pub struct Bullet;
 

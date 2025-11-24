@@ -21,8 +21,8 @@
 
 use crate::{
     level::{
-        self, Door, Key, KeyOf, KillBox, Level, LevelGeometry, MustDestroy, MustKeep, Wall,
-        rectangle,
+        self, Door, Key, KeyOf, KillBox, KillboxClock, Level, LevelGeometry, MustDestroy, MustKeep,
+        Wall, rectangle,
     },
     player::Player,
     weapon::{self, Ammo, MaxAmmo, SelectedWeapon, Weapon},
@@ -61,7 +61,7 @@ pub fn plugin(app: &mut App) {
         (
             disable_input.after(toggle_term),
             enter_exit_inspector,
-            place_wall,
+            place_thing,
             select_weapon,
             paste_selection,
         ),
@@ -196,7 +196,7 @@ fn paste_selection(
     Ok(())
 }
 
-fn place_wall(
+fn place_thing(
     mut commands: Commands,
     mouse_input: Res<ButtonInput<MouseButton>>,
     key_input: Res<ButtonInput<KeyCode>>,
@@ -205,25 +205,79 @@ fn place_wall(
     level_geometry: Single<Entity, With<LevelGeometry>>,
     _enable: Single<&Inspector>,
 ) {
-    if !mouse_input.just_pressed(MouseButton::Left) || !key_input.pressed(KeyCode::AltLeft) {
+    if !mouse_input.just_pressed(MouseButton::Left) {
         return;
     }
 
     let (camera, camera_transform) = camera.into_inner();
-    if let Some(world_position) = window
+    let Some(world_position) = window
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
-    {
-        let width = 200.0;
-        let height = 25.0;
-        commands.spawn((
-            ChildOf(*level_geometry),
-            RigidBody::Static,
-            Transform::from_translation(world_position.extend(0.0)),
-            rectangle(width, height),
-            Name::new("Inspector Wall"),
-            Wall,
-        ));
+    else {
+        return;
+    };
+
+    if !key_input.pressed(KeyCode::AltLeft) {
+        return;
+    }
+
+    match (
+        key_input.pressed(KeyCode::ControlLeft),
+        key_input.pressed(KeyCode::ShiftLeft),
+    ) {
+        (false, false) => {
+            let width = 200.0;
+            let height = 25.0;
+            commands.spawn((
+                ChildOf(*level_geometry),
+                RigidBody::Static,
+                Transform::from_translation(world_position.extend(0.0)),
+                rectangle(width, height),
+                Name::new("Inspector Wall"),
+                Wall,
+            ));
+        }
+        (true, false) => {
+            let width = 200.0;
+            let height = 25.0;
+            commands.spawn((
+                ChildOf(*level_geometry),
+                Transform::from_translation(world_position.extend(0.0)),
+                rectangle(width, height),
+                Name::new("Inspector Kill Box"),
+                KillBox,
+            ));
+        }
+        (false, true) => {
+            let width = 200.0;
+            let height = 25.0;
+            commands.spawn((
+                ChildOf(*level_geometry),
+                Transform::from_translation(world_position.extend(0.0)),
+                rectangle(width, height),
+                Name::new("Clocked Kill Box"),
+                KillBox,
+                KillboxClock {
+                    seconds: 1.0,
+                    polarity: true,
+                },
+            ));
+        }
+        (true, true) => {
+            let width = 200.0;
+            let height = 25.0;
+            commands.spawn((
+                ChildOf(*level_geometry),
+                Transform::from_translation(world_position.extend(0.0)),
+                rectangle(width, height),
+                Name::new("Clocked Kill Box"),
+                KillBox,
+                KillboxClock {
+                    seconds: 1.0,
+                    polarity: false,
+                },
+            ));
+        }
     }
 }
 

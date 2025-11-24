@@ -3,7 +3,7 @@ use crate::inspector;
 use crate::{player::Player, weapon::Bullet};
 use avian2d::prelude::{
     Collider, ColliderConstructor, CollisionEventsEnabled, CollisionLayers, CollisionStart,
-    Gravity, LayerMask, LinearVelocity, PhysicsLayer, RigidBody, Sensor, WakeBody,
+    Gravity, LayerMask, LinearVelocity, PhysicsLayer, PhysicsSystems, RigidBody, Sensor, WakeBody,
 };
 use bevy::{
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
@@ -28,10 +28,15 @@ pub fn plugin(app: &mut App) {
                 wake_bodies_after_gravity_change,
             ),
         )
+        .add_systems(
+            FixedPostUpdate,
+            update_clocked_killbox.before(PhysicsSystems::First),
+        )
         .add_observer(killbox)
         .add_observer(door)
         .add_observer(must_keep)
-        .add_observer(destroy_key);
+        .add_observer(destroy_key)
+        .add_observer(destroy_wall_from_keys);
 }
 
 // TODO: submit Avian issue
@@ -76,7 +81,7 @@ pub struct Level(pub String);
 
 impl Default for Level {
     fn default() -> Self {
-        Self("laser_1".to_string())
+        Self("ar_2".to_string())
     }
 }
 
@@ -117,6 +122,39 @@ fn killbox(
             commands.run_system_cached(reset_level);
         } else {
             commands.entity(enter.collider2).despawn();
+        }
+    }
+}
+
+#[derive(Clone, Copy, Component, Reflect)]
+#[require(Serialize)]
+#[reflect(Component)]
+pub struct KillboxClock {
+    pub seconds: f32,
+    pub polarity: bool,
+}
+
+fn update_clocked_killbox(
+    boxes: Query<(Entity, &KillboxClock)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    let elapsed = time.elapsed().as_secs_f64();
+
+    for (entity, clock) in &boxes {
+        let region = (elapsed / clock.seconds as f64) as i64;
+        let bit = region & 1;
+        let active = (clock.polarity as i64) ^ bit;
+
+        if active == 1 {
+            commands.entity(entity).insert((
+                Visibility::Visible,
+                CollisionLayers::new(Layer::KillBox, LayerMask::ALL),
+            ));
+        } else {
+            commands
+                .entity(entity)
+                .insert((Visibility::Hidden, CollisionLayers::NONE));
         }
     }
 }
@@ -207,6 +245,16 @@ fn destroy_key(
     }
 }
 
+fn destroy_wall_from_keys(
+    trigger: On<Remove, Keys>,
+    wall: Query<(), With<Wall>>,
+    mut commands: Commands,
+) {
+    if wall.get(trigger.entity).is_ok() {
+        commands.entity(trigger.entity).try_despawn();
+    }
+}
+
 #[derive(Component)]
 struct DebugPickingColor(Color);
 
@@ -294,6 +342,7 @@ pub fn serialize_level(
         .allow_component::<KeyOf>()
         .allow_component::<Wall>()
         .allow_component::<KillBox>()
+        .allow_component::<KillboxClock>()
         .allow_component::<Sensor>()
         .allow_component::<CollisionEventsEnabled>()
         .allow_component::<RigidBody>()
