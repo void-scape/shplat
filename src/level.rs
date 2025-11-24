@@ -37,7 +37,7 @@ pub fn plugin(app: &mut App) {
         .add_observer(door)
         .add_observer(must_keep)
         .add_observer(destroy_key)
-        .add_observer(destroy_wall_from_keys);
+        .add_observer(destroy_geometry_from_keys);
 }
 
 // TODO: submit Avian issue
@@ -184,12 +184,12 @@ fn door(
     mut commands: Commands,
     player: Single<Entity, With<Player>>,
     doors: Query<(&Door, Option<&Keys>), Without<Locked>>,
-    must_destroy: Query<&MustDestroy>,
+    must_keep: Query<&MustKeep>,
     mut level: ResMut<Level>,
 ) {
     if *player == start.collider2
         && let Ok((door, keys)) = doors.get(start.collider1)
-        && keys.is_none_or(|keys| keys.iter().all(|entity| !must_destroy.contains(entity)))
+        && keys.is_none_or(|keys| keys.iter().all(|entity| must_keep.contains(entity)))
     {
         level.0 = door.0.clone();
         commands.run_system_cached(despawn_level);
@@ -248,12 +248,12 @@ fn destroy_key(
     }
 }
 
-fn destroy_wall_from_keys(
+fn destroy_geometry_from_keys(
     trigger: On<Remove, Keys>,
-    wall: Query<(), With<Wall>>,
+    geometry: Query<(), Or<(With<Wall>, With<KillBox>)>>,
     mut commands: Commands,
 ) {
-    if wall.get(trigger.entity).is_ok() {
+    if geometry.contains(trigger.entity) {
         commands.entity(trigger.entity).try_despawn();
     }
 }

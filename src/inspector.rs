@@ -13,28 +13,30 @@
 //! ## Terminal
 //! - `l ident`: loads the level with `ident`.
 //! - `c ident`: copies the current state into a new level with `ident`.
-//! - `setdoor ident`: assigns the level's [`Door`] to `ident`.
-//! - `ammo usize`: set the [`MaxAmmo`] of the current weapon.
+//! - `ammo <new_ammo>`
 //! - `{type_name} ...`: spawns entity with components `type_name` under cursor.
+//! - `relate <src_id> Relationship <dst_id>`
 
 use crate::{
-    level::{
-        self, Door, Key, KeyOf, KillBox, KillboxClock, Level, LevelGeometry, MustDestroy, MustKeep,
-        Wall, rectangle,
-    },
+    level::{self, Door, Key, KeyOf, KillBox, KillboxClock, Level, LevelGeometry, Wall, rectangle},
     player::Player,
     weapon::{self, Ammo, MaxAmmo, SelectedWeapon, Weapon, WeaponPickup},
 };
-use avian2d::prelude::{RigidBody, Sensor};
+use avian2d::prelude::{LinearVelocity, RigidBody};
 use bevy::{
+    color::palettes::css::MAGENTA,
+    ecs::relationship::Relationship,
     log::{
         BoxedLayer,
         tracing::{self, Subscriber},
         tracing_subscriber::Layer,
     },
     prelude::*,
+    reflect::FromType,
+    sprite_render::{Wireframe2d, Wireframe2dColor, Wireframe2dPlugin},
     window::PrimaryWindow,
 };
+use bevy_egui::{EguiContext, EguiPrimaryContextPass, PrimaryEguiContext};
 use bevy_enhanced_input::prelude::ContextActivity;
 use bevy_simple_text_input::{
     TextInput, TextInputInactive, TextInputPlugin, TextInputSubmitMessage, TextInputSystem,
@@ -42,28 +44,38 @@ use bevy_simple_text_input::{
 };
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicUsize},
 };
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
+        Wireframe2dPlugin::default(),
         bevy_egui::EguiPlugin::default(),
-        bevy_inspector_egui::quick::WorldInspectorPlugin::default()
-            .run_if(|inspector: Option<Single<&Inspector>>| inspector.is_some()),
+        bevy_inspector_egui::DefaultInspectorConfigPlugin,
         term_plugin,
         debug_information_plugin,
     ))
+    .add_message::<SelectionEvent>()
     .add_systems(Startup, spawn_selection)
     .add_systems(
         Update,
         (
-            disable_input.after(toggle_term),
-            enter_exit_inspector,
-            place_thing,
-            select_weapon,
-            paste_selection,
-        ),
+            bevy_egui::input::write_egui_wants_input_system,
+            bevy_egui::input::absorb_bevy_input_system,
+            (
+                disable_input.after(toggle_term),
+                enter_exit_inspector,
+                place_thing,
+                select_weapon,
+                paste_selection,
+                tags,
+                selection_wireframe,
+                animate_wireframe_color,
+            ),
+        )
+            .chain(),
     )
+    .add_systems(EguiPrimaryContextPass, inspector_ui.run_if(in_inspector))
     .register_required_components::<Player, Pickable>()
     .register_required_components::<Player, Selectable>()
     .register_required_components::<Player, DontCopy>()
@@ -82,7 +94,13 @@ pub fn plugin(app: &mut App) {
     .add_observer(delete_selectable)
     .add_observer(horizontal_expand_selectable)
     .add_observer(vertical_expand_selectable)
-    .add_observer(make_selection);
+    .add_observer(make_selection)
+    .register_type_data::<ChildOf, ReflectRelationship>()
+    .register_type_data::<KeyOf, ReflectRelationship>();
+}
+
+fn in_inspector(inspector: Option<Single<&Inspector>>) -> bool {
+    inspector.is_some()
 }
 
 #[derive(Component)]
@@ -97,11 +115,13 @@ fn disable_input(
     if **ctx && !disable_input.is_empty() {
         commands
             .entity(player)
-            .insert(ContextActivity::<Player>::INACTIVE);
+            .insert((RigidBody::Static, ContextActivity::<Player>::INACTIVE));
     } else if !**ctx && disable_input.is_empty() {
-        commands
-            .entity(player)
-            .insert(ContextActivity::<Player>::ACTIVE);
+        commands.entity(player).insert((
+            RigidBody::Dynamic,
+            LinearVelocity::default(),
+            ContextActivity::<Player>::ACTIVE,
+        ));
     }
 }
 
@@ -127,13 +147,187 @@ fn enter_exit_inspector(
     }
 }
 
-// LEVEL EDITOR
+// ENTITY PICKING
+
+#[derive(Default, Component)]
+struct Selectable;
 
 #[derive(Default, Component)]
 struct DontCopy;
 
-#[derive(Default, Component)]
-struct Selectable;
+#[derive(Component)]
+struct Selection(Entity);
+
+fn spawn_selection(mut commands: Commands) {
+    commands.spawn(Selection(Entity::PLACEHOLDER));
+}
+
+fn make_selection(
+    press: On<Pointer<Press>>,
+    mut selection: Single<&mut Selection>,
+    selectable: Query<(), With<Selectable>>,
+    mut writer: MessageWriter<SelectionEvent>,
+) {
+    if selectable.get(press.entity).is_ok() {
+        writer.write(SelectionEvent {
+            old: selection.0,
+            new: press.entity,
+        });
+        selection.0 = press.entity;
+    }
+}
+
+fn paste_selection(
+    mut commands: Commands,
+    key_input: Res<ButtonInput<KeyCode>>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    camera: Single<(&Camera, &GlobalTransform)>,
+    dont_copy: Query<&DontCopy>,
+    selection: Single<&Selection>,
+    transforms: Query<&Transform>,
+    _enable: Single<&Inspector>,
+) -> Result {
+    if !key_input.pressed(KeyCode::ControlLeft) || !key_input.just_pressed(KeyCode::KeyV) {
+        return Ok(());
+    }
+
+    if dont_copy.contains(selection.0) {
+        return Ok(());
+    }
+
+    let (camera, camera_transform) = camera.into_inner();
+    if let Some(world_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
+        && let Ok(mut entity) = commands.get_entity(selection.0)
+    {
+        let mut transform = *transforms.get(selection.0)?;
+        transform.translation.x = world_position.x;
+        transform.translation.y = world_position.y;
+        entity.clone_and_spawn().insert(transform);
+    }
+    Ok(())
+}
+
+#[derive(Message)]
+struct SelectionEvent {
+    old: Entity,
+    new: Entity,
+}
+
+fn selection_wireframe(mut commands: Commands, mut events: MessageReader<SelectionEvent>) {
+    for event in events.read() {
+        if let Ok(mut entity) = commands.get_entity(event.old) {
+            entity.remove::<Wireframe2d>();
+        }
+        if let Ok(mut entity) = commands.get_entity(event.new) {
+            entity.insert((
+                Wireframe2d,
+                Wireframe2dColor {
+                    color: Color::WHITE,
+                },
+            ));
+        }
+    }
+}
+
+fn animate_wireframe_color(time: Res<Time>, mut wireframes: Query<&mut Wireframe2dColor>) {
+    let t = (time.elapsed_secs_f64() % 1.0) as f32;
+    for mut color in wireframes.iter_mut() {
+        color.color = Color::WHITE.mix(&MAGENTA.into(), t);
+    }
+}
+
+fn inspector_ui(world: &mut World) {
+    let Ok(egui_context) = world
+        .query_filtered::<&mut EguiContext, With<PrimaryEguiContext>>()
+        .single(world)
+    else {
+        return;
+    };
+    let mut egui_context = egui_context.clone();
+
+    let selected = world.query::<&Selection>().single(world).unwrap().0;
+    bevy_egui::egui::Window::new("Inspector")
+        .default_size([500.0, 1000.0])
+        .show(egui_context.get_mut(), |ui| {
+            ui.columns(2, |ui| {
+                ui[0].vertical(|ui| {
+                    ui.push_id("World", |ui| {
+                        bevy_egui::egui::ScrollArea::vertical().show(ui, |ui| {
+                            ui.heading("World");
+                            bevy_inspector_egui::bevy_inspector::ui_for_world(world, ui);
+                        });
+                    })
+                });
+                if world.get_entity(selected).is_ok() {
+                    ui[1].vertical(|ui| {
+                        bevy_egui::egui::ScrollArea::vertical().show(ui, |ui| {
+                            bevy_inspector_egui::bevy_inspector::ui_for_entity(world, selected, ui);
+                        });
+                    });
+                }
+            })
+        });
+}
+
+// LEVEL EDITOR
+
+static TAG: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Component)]
+struct Tag(usize);
+
+#[derive(Component)]
+#[relationship_target(relationship = TagTextOf, linked_spawn)]
+struct TagText(Vec<Entity>);
+
+#[derive(Component)]
+#[relationship(relationship_target = TagText)]
+struct TagTextOf(Entity);
+
+fn tags(
+    mut commands: Commands,
+    new_entities: Query<Entity, (Without<Tag>, Added<Selectable>)>,
+    input: Res<ButtonInput<KeyCode>>,
+    tags: Query<(Entity, &Tag)>,
+    text: Query<Entity, With<TagTextOf>>,
+    transforms: Query<&GlobalTransform>,
+    mut text_transforms: Query<(&mut Transform, &TagTextOf)>,
+    mut enabled: Local<bool>,
+) -> Result {
+    for entity in new_entities.iter() {
+        commands
+            .entity(entity)
+            .insert(Tag(TAG.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+    }
+
+    if input.just_pressed(KeyCode::F1) {
+        if !*enabled {
+            for (entity, tag) in tags.iter() {
+                commands.spawn((
+                    TagTextOf(entity),
+                    Text2d::new(format!("{}", tag.0)),
+                    TextFont::from_font_size(30.0),
+                    TextBackgroundColor(Color::BLACK),
+                ));
+            }
+        } else {
+            for entity in text.iter() {
+                commands.entity(entity).despawn();
+            }
+        }
+        *enabled = !*enabled;
+    }
+
+    for (mut transform, tag_of) in text_transforms.iter_mut() {
+        let root_transform = transforms.get(tag_of.0)?;
+        transform.translation = root_transform.translation();
+        transform.translation.z = 500.0;
+    }
+
+    Ok(())
+}
 
 fn drag_transform(
     pick: On<Pointer<Drag>>,
@@ -150,50 +344,6 @@ fn drag_transform(
         transform.translation.x += delta.x;
         transform.translation.y -= delta.y;
     }
-}
-
-#[derive(Component)]
-struct Selection(Entity);
-
-fn spawn_selection(mut commands: Commands) {
-    commands.spawn(Selection(Entity::PLACEHOLDER));
-}
-
-fn make_selection(
-    press: On<Pointer<Press>>,
-    mut selection: Single<&mut Selection, Without<DontCopy>>,
-    selectable: Query<(), With<Selectable>>,
-) {
-    if selectable.get(press.entity).is_ok() {
-        selection.0 = press.entity;
-    }
-}
-
-fn paste_selection(
-    mut commands: Commands,
-    key_input: Res<ButtonInput<KeyCode>>,
-    window: Single<&Window, With<PrimaryWindow>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
-    selection: Single<&Selection>,
-    transforms: Query<&Transform>,
-    _enable: Single<&Inspector>,
-) -> Result {
-    if !key_input.pressed(KeyCode::ControlLeft) || !key_input.just_pressed(KeyCode::KeyV) {
-        return Ok(());
-    }
-
-    let (camera, camera_transform) = camera.into_inner();
-    if let Some(world_position) = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
-        && let Ok(mut entity) = commands.get_entity(selection.0)
-    {
-        let mut transform = *transforms.get(selection.0)?;
-        transform.translation.x = world_position.x;
-        transform.translation.y = world_position.y;
-        entity.clone_and_spawn().insert(transform);
-    }
-    Ok(())
 }
 
 fn place_thing(
@@ -327,6 +477,23 @@ fn vertical_expand_selectable(
     }
 }
 
+// RELATE
+
+#[derive(Clone)]
+pub struct ReflectRelationship {
+    relate: fn(entity: &mut EntityWorldMut, target: Entity),
+}
+
+impl<T: Relationship + Component + Reflect> FromType<T> for ReflectRelationship {
+    fn from_type() -> Self {
+        ReflectRelationship {
+            relate: |entity, target| {
+                entity.insert(T::from(target));
+            },
+        }
+    }
+}
+
 // SELECT WEAPONS
 
 fn select_weapon(
@@ -404,13 +571,12 @@ fn parse_commands(
     mut events: MessageReader<TextInputSubmitMessage>,
     mut level: ResMut<Level>,
     mut selected_weapon: Option<Single<(&mut MaxAmmo, &mut Ammo), With<SelectedWeapon>>>,
-    mut door: Option<Single<(Entity, &mut Door)>>,
 ) {
     let error_str = r#"- `l ident`: loads the level with `ident`.
         - `c ident`: copies the current state into a new level with `ident`.
-        - `setdoor ident`: assigns the level's [`Door`] to `ident`.
-        - `ammo usize`: set the [`MaxAmmo`] of the current weapon.
-        - `{{type_name}}`: spawns entity with component `type_name` under cursor
+        - `ammo <new_ammo>`
+        - `{type_name} ...`: spawns entity with components `type_name` under cursor.
+        - `relate <src_id> Relationship <dst_id>`
         "#;
 
     for event in events.read() {
@@ -423,26 +589,53 @@ fn parse_commands(
             level.0 = level_ident.to_string();
             commands.run_system_cached(level::serialize_level);
             commands.run_system_cached(level::reset_level);
-        } else if let Some(level_ident) = event.value.strip_prefix("setdoor ") {
-            if let Some(door) = &mut door {
-                info!("setting door to {level_ident}");
-                door.1.0 = level_ident.to_string();
-            } else {
-                error!("there is not door to set {level_ident} to");
+        } else if event.value.starts_with("relate ") {
+            let mut args = event.value.split_whitespace();
+            assert_eq!(args.next(), Some("relate"));
+
+            if event.value.split_whitespace().count() != 4 {
+                error!("Usage: relate <src_id> Relationship <dst_id>");
+                return;
             }
-        } else if event.value == "keep" {
-            if let Some(door) = &door {
-                info!("creating keep lock");
-                commands.spawn((Key, Sensor, MustKeep, KeyOf(door.0)));
+
+            let src = args.next().unwrap().parse::<usize>();
+            let relationship = args.next().unwrap().to_string();
+            let dst = args.next().unwrap().parse::<usize>();
+
+            if let (Ok(src), Ok(dst)) = (src, dst) {
+                commands.queue(move |world: &mut World| {
+                    world.resource_scope(
+                        move |world: &mut World, registry: Mut<AppTypeRegistry>| {
+                            let src_entity = world
+                                .query::<(Entity, &Tag)>()
+                                .iter(world)
+                                .find_map(|(entity, tag)| (tag.0 == src).then_some(entity))
+                                .unwrap();
+
+                            let dst_entity = world
+                                .query::<(Entity, &Tag)>()
+                                .iter(world)
+                                .find_map(|(entity, tag)| (tag.0 == dst).then_some(entity))
+                                .unwrap();
+
+                            let registry = registry.read();
+                            if let Some(ty) = registry
+                                .iter()
+                                .find(|ty| ty.type_info().type_path().ends_with(&relationship))
+                                && let Some(reflect_relationship) = ty.data::<ReflectRelationship>()
+                            {
+                                (reflect_relationship.relate)(
+                                    &mut world.entity_mut(src_entity),
+                                    dst_entity,
+                                );
+                            } else {
+                                error!("{error_str}");
+                            }
+                        },
+                    );
+                });
             } else {
-                error!("there is not door to make a lock for");
-            }
-        } else if event.value == "destroy" {
-            if let Some(door) = &door {
-                info!("creating destroy lock");
-                commands.spawn((Key, Sensor, MustDestroy, KeyOf(door.0)));
-            } else {
-                error!("there is not door to make a lock for");
+                error!("Usage: relate <src_id> Relationship <dst_id>");
             }
         } else if let Some(value) = event.value.strip_prefix("ammo ") {
             if let Some(selected_weapon) = selected_weapon.as_mut() {
@@ -705,7 +898,13 @@ struct WeaponAmmo(usize, usize);
 
 fn weapon_ammo(
     ammo_text: Single<(&mut Text, &mut WeaponAmmo)>,
-    selected_weapon: Single<(&MaxAmmo, &Ammo), Or<(Changed<MaxAmmo>, Changed<Ammo>)>>,
+    selected_weapon: Single<
+        (&MaxAmmo, &Ammo),
+        (
+            With<SelectedWeapon>,
+            Or<(Changed<MaxAmmo>, Changed<Ammo>, Added<SelectedWeapon>)>,
+        ),
+    >,
 ) {
     let (mut text, mut current) = ammo_text.into_inner();
     let (max_ammo, ammo) = selected_weapon.into_inner();

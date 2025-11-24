@@ -20,9 +20,8 @@ use rand::Rng;
 use std::f32::consts::PI;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, (despawn_bullets, laser, weapon_pickup))
+    app.add_systems(Update, (despawn_bullets, laser, weapon_pickup, reload))
         .add_tween_systems(component_tween_system::<BulletVelocityLength>())
-        .add_observer(reload)
         .add_observer(insert_fire)
         .add_observer(remove_fire)
         .add_observer(shotgun)
@@ -46,7 +45,10 @@ impl MaxAmmo {
 #[derive(Component)]
 pub struct Ammo(pub usize);
 
-fn reload(_: On<Insert, Grounded>, ammo: Single<(&mut Ammo, &MaxAmmo), With<SelectedWeapon>>) {
+fn reload(
+    _player: Single<&Player, Or<(Added<Grounded>, (Changed<Children>, With<Grounded>))>>, 
+    ammo: Single<(&mut Ammo, &MaxAmmo), With<SelectedWeapon>>,
+) {
     let (mut ammo, max_ammo) = ammo.into_inner();
     ammo.0 = max_ammo.0;
 }
