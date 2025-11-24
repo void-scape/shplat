@@ -13,11 +13,9 @@
 //! ## Terminal
 //! - `l ident`: loads the level with `ident`.
 //! - `c ident`: copies the current state into a new level with `ident`.
-//! - `door ident`: creates a new [`Door`] and [`DestructableKey`] leading to `ident`.
 //! - `setdoor ident`: assigns the level's [`Door`] to `ident`.
-//! - `destroy`: crates a new [`MustDestroy`] [`Key`].
-//! - `keep`: crates a new [`MustKeep`] [`Key`].
 //! - `ammo usize`: set the [`MaxAmmo`] of the current weapon.
+//! - `{type_name} ...`: spawns entity with components `type_name` under cursor.
 
 use crate::{
     level::{
@@ -25,7 +23,7 @@ use crate::{
         Wall, rectangle,
     },
     player::Player,
-    weapon::{self, Ammo, MaxAmmo, SelectedWeapon, Weapon},
+    weapon::{self, Ammo, MaxAmmo, SelectedWeapon, Weapon, WeaponPickup},
 };
 use avian2d::prelude::{RigidBody, Sensor};
 use bevy::{
@@ -78,6 +76,8 @@ pub fn plugin(app: &mut App) {
     .register_required_components::<KillBox, Selectable>()
     .register_required_components::<Key, Pickable>()
     .register_required_components::<Key, Selectable>()
+    .register_required_components::<WeaponPickup, Pickable>()
+    .register_required_components::<WeaponPickup, Selectable>()
     .add_observer(drag_transform)
     .add_observer(delete_selectable)
     .add_observer(horizontal_expand_selectable)
@@ -345,31 +345,31 @@ fn select_weapon(
                 commands
                     .entity(*player)
                     .despawn_children()
-                    .with_child(weapon::Shotgun);
+                    .with_child((weapon::Shotgun, weapon::SelectedWeapon));
             }
             KeyCode::Digit2 => {
                 commands
                     .entity(*player)
                     .despawn_children()
-                    .with_child(weapon::AssaultRifle);
+                    .with_child((weapon::AssaultRifle, weapon::SelectedWeapon));
             }
             KeyCode::Digit3 => {
                 commands
                     .entity(*player)
                     .despawn_children()
-                    .with_child(weapon::GravityGun);
+                    .with_child((weapon::GravityGun, weapon::SelectedWeapon));
             }
             KeyCode::Digit4 => {
                 commands
                     .entity(*player)
                     .despawn_children()
-                    .with_child(weapon::Rocket);
+                    .with_child((weapon::Rocket, weapon::SelectedWeapon));
             }
             KeyCode::Digit5 => {
                 commands
                     .entity(*player)
                     .despawn_children()
-                    .with_child(weapon::Laser);
+                    .with_child((weapon::Laser, weapon::SelectedWeapon));
             }
             _ => {}
         }
@@ -406,6 +406,13 @@ fn parse_commands(
     mut selected_weapon: Option<Single<(&mut MaxAmmo, &mut Ammo), With<SelectedWeapon>>>,
     mut door: Option<Single<(Entity, &mut Door)>>,
 ) {
+    let error_str = r#"- `l ident`: loads the level with `ident`.
+        - `c ident`: copies the current state into a new level with `ident`.
+        - `setdoor ident`: assigns the level's [`Door`] to `ident`.
+        - `ammo usize`: set the [`MaxAmmo`] of the current weapon.
+        - `{{type_name}}`: spawns entity with component `type_name` under cursor
+        "#;
+
     for event in events.read() {
         if let Some(level_ident) = event.value.strip_prefix("l ") {
             info!("loading {level_ident}");
@@ -416,9 +423,6 @@ fn parse_commands(
             level.0 = level_ident.to_string();
             commands.run_system_cached(level::serialize_level);
             commands.run_system_cached(level::reset_level);
-        } else if let Some(level_ident) = event.value.strip_prefix("door ") {
-            info!("creating key and door to {level_ident}");
-            commands.spawn(Door(level_ident.to_string()));
         } else if let Some(level_ident) = event.value.strip_prefix("setdoor ") {
             if let Some(door) = &mut door {
                 info!("setting door to {level_ident}");
@@ -451,17 +455,50 @@ fn parse_commands(
                 selected_weapon.1.0 = amount;
             }
         } else {
-            error!(
-                r#"
-- `l ident`: loads the level with `ident`.
-- `c ident`: copies the current state into a new level with `ident`.
-- `door ident`: creates a new [`Door`] and [`DestructableKey`] leading to `ident`.
-- `setdoor ident`: assigns the level's [`Door`] to `ident`.
-- `destroy`: crates a new [`MustDestroy`] [`Key`].
-- `keep`: crates a new [`MustKeep`] [`Key`].
-- `ammo usize`: set the [`MaxAmmo`] of the current weapon.
-"#
-            );
+            let ty_names = event.value.clone();
+            commands.queue(move |world: &mut World| {
+                world.resource_scope(move |world: &mut World, registry: Mut<AppTypeRegistry>| {
+                    let window = world
+                        .query_filtered::<&Window, With<PrimaryWindow>>()
+                        .single(world)
+                        .unwrap();
+
+                    if let Some(world_position) = window.cursor_position().and_then(|cursor| {
+                        let (camera, camera_transform) = world
+                            .query::<(&Camera, &GlobalTransform)>()
+                            .single(world)
+                            .unwrap();
+                        camera.viewport_to_world_2d(camera_transform, cursor).ok()
+                    }) {
+                        let transform = Transform::from_translation(world_position.extend(0.0));
+                        let mut entity = world.spawn(transform);
+
+                        let registry = registry.read();
+                        for ty_name in ty_names.split_whitespace() {
+                            if let Some(ty) = registry
+                                .iter()
+                                .find(|ty| ty.type_info().type_path().ends_with(ty_name))
+                                && let Some(reflect_default) = ty.data::<ReflectDefault>()
+                            {
+                                let reflected_value = reflect_default.default();
+                                if let Some(reflect_component) = ty.data::<ReflectComponent>() {
+                                    reflect_component.insert(
+                                        &mut entity,
+                                        &*reflected_value,
+                                        &registry,
+                                    );
+                                }
+                            } else {
+                                error!("{error_str}");
+                                entity.despawn();
+                                return;
+                            }
+                        }
+                    } else {
+                        error!("{error_str}");
+                    }
+                });
+            });
         }
     }
 }

@@ -26,6 +26,7 @@ pub fn plugin(app: &mut App) {
                 user_serialize_level,
                 user_reset_level,
                 wake_bodies_after_gravity_change,
+                needs_serialized_collider,
             ),
         )
         .add_systems(
@@ -81,7 +82,7 @@ pub struct Level(pub String);
 
 impl Default for Level {
     fn default() -> Self {
-        Self("ar_2".to_string())
+        Self("shotgun_4".to_string())
     }
 }
 
@@ -89,26 +90,28 @@ impl Default for Level {
 #[reflect(Component)]
 pub struct LevelGeometry;
 
-#[derive(Clone, Copy, Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(
     Serialize,
     RigidBody::Static,
+    CollisionLayers::new(Layer::Wall, LayerMask::ALL),
     DebugPickingColor::new(BLUE),
-    CollisionLayers::new(Layer::Wall, LayerMask::ALL)
+    NeedsSerializedCollider
 )]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct Wall;
 
-#[derive(Clone, Copy, Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(
     Serialize,
-    CollisionLayers::new(Layer::KillBox, LayerMask::ALL),
     RigidBody::Static,
     Sensor,
     CollisionEventsEnabled,
-    DebugPickingColor::new(RED)
+    CollisionLayers::new(Layer::KillBox, LayerMask::ALL),
+    DebugPickingColor::new(RED),
+    NeedsSerializedCollider
 )]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct KillBox;
 
 fn killbox(
@@ -218,14 +221,14 @@ pub struct KeyOf(pub Entity);
 #[reflect(Component)]
 pub struct Key;
 
-#[derive(Clone, Copy, Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(Key)]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct MustDestroy;
 
-#[derive(Clone, Copy, Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(Key)]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct MustKeep;
 
 fn must_keep(remove: On<Remove, MustKeep>, mut commands: Commands, key_ofs: Query<&KeyOf>) {
@@ -256,10 +259,10 @@ fn destroy_wall_from_keys(
 }
 
 #[derive(Component)]
-struct DebugPickingColor(Color);
+pub struct DebugPickingColor(Color);
 
 impl DebugPickingColor {
-    fn new(color: impl Into<Color>) -> Self {
+    pub fn new(color: impl Into<Color>) -> Self {
         Self(color.into())
     }
 }
@@ -277,6 +280,26 @@ fn add_pickable_sprites(
     }
 }
 
+/// Hack for `requiring` a [`SerializedColliderConstructor`] without requiring it
+/// on the target and breaking the deserialization.
+#[derive(Default, Component)]
+struct NeedsSerializedCollider;
+
+fn needs_serialized_collider(
+    mut commands: Commands,
+    needs: Query<
+        Entity,
+        (
+            With<NeedsSerializedCollider>,
+            Without<SerializedColliderConstructor>,
+        ),
+    >,
+) {
+    for entity in needs.iter() {
+        commands.entity(entity).insert(rectangle(20.0, 20.0));
+    }
+}
+
 #[derive(Clone, Component, Reflect)]
 #[component(on_insert = Self::insert)]
 #[reflect(Component)]
@@ -289,7 +312,11 @@ impl SerializedColliderConstructor {
             .unwrap()
             .0
             .clone();
-        world.commands().entity(ctx.entity).insert(constructor);
+        world
+            .commands()
+            .entity(ctx.entity)
+            .remove::<(ColliderConstructor, Collider)>()
+            .insert(constructor);
     }
 }
 
@@ -328,6 +355,7 @@ pub fn serialize_level(
         .allow_component::<Children>()
         .allow_component::<ChildOf>()
         .allow_component::<SelectedWeapon>()
+        .allow_component::<WeaponPickup>()
         .allow_component::<MaxAmmo>()
         .allow_component::<Shotgun>()
         .allow_component::<AssaultRifle>()

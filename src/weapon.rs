@@ -1,9 +1,13 @@
 use crate::{
-    level::{Key, Layer, Serialize, Transient},
+    level::{
+        DebugPickingColor, Key, Layer, Serialize, SerializedColliderConstructor, Transient,
+        rectangle,
+    },
     player::{AimVector, Attack, Grounded, Player, WeaponVelocity},
 };
 use avian2d::prelude::*;
 use bevy::{
+    color::palettes::css::PURPLE,
     ecs::{lifecycle::HookContext, world::DeferredWorld},
     prelude::*,
 };
@@ -16,7 +20,7 @@ use rand::Rng;
 use std::f32::consts::PI;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, (despawn_bullets, laser))
+    app.add_systems(Update, (despawn_bullets, laser, weapon_pickup))
         .add_tween_systems(component_tween_system::<BulletVelocityLength>())
         .add_observer(reload)
         .add_observer(insert_fire)
@@ -71,11 +75,7 @@ fn remove_fire(insert: On<Insert, FireWeapon>, mut commands: Commands) {
 }
 
 #[derive(Default, Component, Reflect)]
-#[require(
-    Serialize,
-    // TODO: move
-    SelectedWeapon,
-)]
+#[require(Serialize)]
 #[reflect(Component)]
 pub struct Weapon;
 
@@ -83,9 +83,9 @@ pub struct Weapon;
 #[reflect(Component)]
 pub struct SelectedWeapon;
 
-#[derive(Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(Weapon, MaxAmmo(1), Name::new("Shotgun"))]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct Shotgun;
 
 fn shotgun(
@@ -125,9 +125,9 @@ fn shotgun(
     }
 }
 
-#[derive(Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(Weapon, MaxAmmo(3), Name::new("Assault Rifle"))]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct AssaultRifle;
 
 fn assault_rifle(
@@ -161,9 +161,9 @@ fn assault_rifle(
         });
 }
 
-#[derive(Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(Weapon, MaxAmmo(2), Name::new("Gravity Gun"))]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct GravityGun;
 
 fn gravity_gun(
@@ -181,9 +181,9 @@ fn gravity_gun(
     }
 }
 
-#[derive(Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(Weapon, MaxAmmo(1), Name::new("Rocket"))]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct Rocket;
 
 fn rocket(
@@ -234,10 +234,10 @@ fn rocket_bullet(
     Ok(())
 }
 
-#[derive(Component, Reflect)]
+#[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(Weapon, Name::new("Laser"))]
 #[component(on_insert = Laser::insert)]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct Laser;
 
 impl Laser {
@@ -338,5 +338,49 @@ fn random_direction_in_arc(dir: Vec2, arc_radians: f32, rng: &mut impl Rng) -> V
     Vec2 {
         x: final_angle.cos(),
         y: final_angle.sin(),
+    }
+}
+
+#[derive(Default, Clone, Copy, Component, Reflect)]
+#[require(
+    Transform, 
+    SerializedColliderConstructor = rectangle(50.0, 50.0),
+    DebugPickingColor::new(PURPLE),
+)]
+#[reflect(Default, Component)]
+pub struct WeaponPickup;
+
+fn weapon_pickup(
+    mut commands: Commands,
+    player: Single<(Entity, &GlobalTransform), With<Player>>,
+    weapon: Query<Entity, With<SelectedWeapon>>,
+    pickups: Query<(Entity, &GlobalTransform), With<WeaponPickup>>,
+) {
+    let radius = 100.0;
+    let (player, player_transform) = player.into_inner();
+    let player_translation = player_transform.translation().xy();
+    for (pickup, pickup_transform) in pickups.iter() {
+        if pickup_transform
+            .translation()
+            .xy()
+            .distance_squared(player_translation)
+            < radius * radius
+        {
+            commands
+                .entity(pickup)
+                .remove::<(
+                    Transform, 
+                    WeaponPickup, 
+                    Collider, 
+                    SerializedColliderConstructor,
+                    ColliderConstructor, 
+                    Sprite, 
+                    DebugPickingColor,
+                )>()
+                .insert((SelectedWeapon, ChildOf(player)));
+            for entity in weapon.iter() {
+                commands.entity(entity).despawn();
+            }
+        }
     }
 }
