@@ -1,7 +1,7 @@
-use crate::level::{Layer, Serialize, Wall};
+use crate::level::{DebugPickingColor, Layer, Serialize, Wall};
 use avian2d::prelude::*;
 use bevy::{
-    color::palettes::css::BLUE, input::mouse::MouseMotion, prelude::*, window::PrimaryWindow,
+    color::palettes::css::ORANGE, input::mouse::MouseMotion, prelude::*, window::PrimaryWindow,
 };
 use bevy_enhanced_input::{prelude::Cancel, prelude::Press, prelude::*};
 use bevy_tween::prelude::EaseKind;
@@ -31,7 +31,7 @@ pub fn plugin(app: &mut App) {
 #[require(
     Serialize,
     Transform,
-    Sprite::from_color(BLUE, Vec2::new(50.0, 50.0)),
+    DebugPickingColor::new(ORANGE),
     // Avian Components
     RigidBody::Dynamic,
     LockedAxes::ROTATION_LOCKED,
@@ -60,7 +60,7 @@ pub struct Player;
 
 impl Player {
     pub fn collider() -> Collider {
-        Collider::capsule(12.5, 20.0)
+        Collider::rectangle(12.5 * 2.0, 20.0 * 2.0)
     }
 
     pub fn ground_caster() -> ShapeCaster {
@@ -187,6 +187,11 @@ fn inject_bindings(
             Press::default(),
             bindings![MouseButton::Left, GamepadButton::RightTrigger2],
         ),
+        (
+            Action::<PickUp>::new(),
+            Press::default(),
+            bindings![KeyCode::KeyF, KeyCode::Enter, GamepadButton::North],
+        ),
     ]));
     Ok(())
 }
@@ -308,3 +313,7 @@ fn handle_attack(
 ) {
     commands.entity(*player).remove::<Jumping>();
 }
+
+#[derive(InputAction)]
+#[action_output(bool)]
+pub struct PickUp;

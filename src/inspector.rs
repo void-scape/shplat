@@ -215,6 +215,7 @@ struct SelectionEvent {
     new: Entity,
 }
 
+// TODO: no wireframes?
 fn selection_wireframe(mut commands: Commands, mut events: MessageReader<SelectionEvent>) {
     for event in events.read() {
         if let Ok(mut entity) = commands.get_entity(event.old) {
@@ -457,7 +458,7 @@ fn horizontal_expand_selectable(
 
     if let Ok(mut transform) = transforms.get_mut(pick.entity) {
         let delta = pick.delta;
-        transform.scale.x += delta.x * 0.01;
+        transform.scale.x += delta.x * 0.05;
     }
 }
 
@@ -473,7 +474,7 @@ fn vertical_expand_selectable(
 
     if let Ok(mut transform) = transforms.get_mut(pick.entity) {
         let delta = pick.delta;
-        transform.scale.y += delta.y * 0.1;
+        transform.scale.y += delta.y * 0.05;
     }
 }
 

@@ -1,9 +1,13 @@
 #[cfg(feature = "debug")]
 use crate::inspector;
 use crate::{player::Player, weapon::Bullet};
-use avian2d::prelude::{
-    Collider, ColliderConstructor, CollisionEventsEnabled, CollisionLayers, CollisionStart,
-    Gravity, LayerMask, LinearVelocity, PhysicsLayer, PhysicsSystems, RigidBody, Sensor, WakeBody,
+use avian2d::{
+    dynamics::solver::islands::BodyIslandNode,
+    prelude::{
+        Collider, ColliderConstructor, CollisionEventsEnabled, CollisionLayers, CollisionStart,
+        Gravity, LayerMask, LinearVelocity, PhysicsLayer, PhysicsSystems, RigidBody, Sensor,
+        WakeBody,
+    },
 };
 use bevy::{
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
@@ -24,14 +28,13 @@ pub fn plugin(app: &mut App) {
                 remove_dynamic_scene_root,
                 #[cfg(feature = "debug")]
                 user_serialize_level,
-                user_reset_level,
-                wake_bodies_after_gravity_change,
+                (user_reset_level, wake_bodies_after_gravity_change).chain(),
                 needs_serialized_collider,
             ),
         )
         .add_systems(
             FixedPostUpdate,
-            update_clocked_killbox.before(PhysicsSystems::First),
+            (killbox_clock, killbox_gravity_switch).before(PhysicsSystems::First),
         )
         .add_observer(killbox)
         .add_observer(door)
@@ -44,7 +47,7 @@ pub fn plugin(app: &mut App) {
 fn wake_bodies_after_gravity_change(
     mut commands: Commands,
     gravity: Res<Gravity>,
-    bodies: Query<Entity, With<RigidBody>>,
+    bodies: Query<Entity, With<BodyIslandNode>>,
 ) {
     if gravity.is_changed() {
         for entity in bodies.iter() {
@@ -62,6 +65,7 @@ pub enum Layer {
     Wall,
     KillBox,
     Key,
+    Pickups,
 }
 
 /// Marks a level entity for level serialization.
@@ -82,7 +86,7 @@ pub struct Level(pub String);
 
 impl Default for Level {
     fn default() -> Self {
-        Self("shotgun_4".to_string())
+        Self("gravity_5".to_string())
     }
 }
 
@@ -107,12 +111,18 @@ pub struct Wall;
     RigidBody::Static,
     Sensor,
     CollisionEventsEnabled,
-    CollisionLayers::new(Layer::KillBox, LayerMask::ALL),
+    CollisionLayers = Self::collision_layers(),
     DebugPickingColor::new(RED),
     NeedsSerializedCollider
 )]
 #[reflect(Default, Component)]
 pub struct KillBox;
+
+impl KillBox {
+    pub fn collision_layers() -> CollisionLayers {
+        CollisionLayers::new(Layer::KillBox, LayerMask::ALL)
+    }
+}
 
 fn killbox(
     enter: On<CollisionStart>,
@@ -130,18 +140,23 @@ fn killbox(
 }
 
 #[derive(Clone, Copy, Component, Reflect)]
-#[require(Serialize)]
-#[reflect(Component)]
+#[require(KillBox)]
+#[reflect(Default, Component)]
 pub struct KillboxClock {
     pub seconds: f32,
     pub polarity: bool,
 }
 
-fn update_clocked_killbox(
-    boxes: Query<(Entity, &KillboxClock)>,
-    time: Res<Time>,
-    mut commands: Commands,
-) {
+impl Default for KillboxClock {
+    fn default() -> Self {
+        Self {
+            seconds: 1.0,
+            polarity: true,
+        }
+    }
+}
+
+fn killbox_clock(boxes: Query<(Entity, &KillboxClock)>, time: Res<Time>, mut commands: Commands) {
     let elapsed = time.elapsed().as_secs_f64();
 
     for (entity, clock) in &boxes {
@@ -150,14 +165,41 @@ fn update_clocked_killbox(
         let active = (clock.polarity as i64) ^ bit;
 
         if active == 1 {
-            commands.entity(entity).insert((
-                Visibility::Visible,
-                CollisionLayers::new(Layer::KillBox, LayerMask::ALL),
-            ));
+            commands
+                .entity(entity)
+                .insert((Visibility::Visible, KillBox::collision_layers()));
         } else {
             commands
                 .entity(entity)
                 .insert((Visibility::Hidden, CollisionLayers::NONE));
+        }
+    }
+}
+
+/// `false` means active with normal gravity.
+/// `true` means active with inverted gravity.
+#[derive(Default, Clone, Copy, Component, Reflect)]
+#[require(KillBox)]
+#[reflect(Default, Component)]
+pub struct KillboxGravitySwitch(pub bool);
+
+fn killbox_gravity_switch(
+    mut commands: Commands,
+    gravity: Res<Gravity>,
+    boxes: Query<(Entity, &KillboxGravitySwitch)>,
+) {
+    if gravity.is_changed() {
+        let polarity = gravity.0.y > 0.0;
+        for (entity, switch) in boxes.iter() {
+            if polarity == switch.0 {
+                commands
+                    .entity(entity)
+                    .insert((Visibility::Visible, KillBox::collision_layers()));
+            } else {
+                commands
+                    .entity(entity)
+                    .insert((Visibility::Hidden, CollisionLayers::NONE));
+            }
         }
     }
 }
@@ -169,12 +211,18 @@ fn update_clocked_killbox(
     RigidBody::Static,
     Sensor,
     CollisionEventsEnabled,
-    SerializedColliderConstructor = rectangle(20.0, 20.0),
     CollisionLayers::new(Layer::Default, LayerMask::ALL),
     DebugPickingColor::new(GREEN),
+    NeedsSerializedCollider
 )]
-#[reflect(Component)]
+#[reflect(Default, Component)]
 pub struct Door(pub String);
+
+impl Default for Door {
+    fn default() -> Self {
+        Self("shotgun_1".to_string())
+    }
+}
 
 #[derive(Component)]
 pub struct Locked;
@@ -214,9 +262,9 @@ pub struct KeyOf(pub Entity);
     RigidBody::Static,
     CollisionEventsEnabled,
     LinearVelocity::default(),
-    SerializedColliderConstructor = rectangle(20.0, 20.0),
     DebugPickingColor::new(YELLOW),
     CollisionLayers::new(Layer::Key, LayerMask::ALL),
+    NeedsSerializedCollider
 )]
 #[reflect(Component)]
 pub struct Key;
@@ -296,7 +344,7 @@ fn needs_serialized_collider(
     >,
 ) {
     for entity in needs.iter() {
-        commands.entity(entity).insert(rectangle(20.0, 20.0));
+        commands.entity(entity).insert(rectangle(100.0, 100.0));
     }
 }
 
@@ -371,6 +419,7 @@ pub fn serialize_level(
         .allow_component::<Wall>()
         .allow_component::<KillBox>()
         .allow_component::<KillboxClock>()
+        .allow_component::<KillboxGravitySwitch>()
         .allow_component::<Sensor>()
         .allow_component::<CollisionEventsEnabled>()
         .allow_component::<RigidBody>()
@@ -414,7 +463,7 @@ pub fn despawn_level(
     entities: Query<Entity, (Or<(With<Serialize>, With<Transient>)>, Without<ChildOf>)>,
 ) {
     for entity in entities.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 }
 

@@ -3,7 +3,7 @@ use crate::{
         DebugPickingColor, Key, Layer, Serialize, SerializedColliderConstructor, Transient,
         rectangle,
     },
-    player::{AimVector, Attack, Grounded, Player, WeaponVelocity},
+    player::{AimVector, Attack, Grounded, PickUp, Player, WeaponVelocity},
 };
 use avian2d::prelude::*;
 use bevy::{
@@ -20,8 +20,9 @@ use rand::Rng;
 use std::f32::consts::PI;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, (despawn_bullets, laser, weapon_pickup, reload))
+    app.add_systems(Update, (despawn_bullets, laser, reload))
         .add_tween_systems(component_tween_system::<BulletVelocityLength>())
+        .add_observer(weapon_pickup)
         .add_observer(insert_fire)
         .add_observer(remove_fire)
         .add_observer(shotgun)
@@ -46,7 +47,7 @@ impl MaxAmmo {
 pub struct Ammo(pub usize);
 
 fn reload(
-    _player: Single<&Player, Or<(Added<Grounded>, (Changed<Children>, With<Grounded>))>>, 
+    _player: Single<&Player, Or<(Added<Grounded>, (Changed<Children>, With<Grounded>))>>,
     ammo: Single<(&mut Ammo, &MaxAmmo), With<SelectedWeapon>>,
 ) {
     let (mut ammo, max_ammo) = ammo.into_inner();
@@ -345,14 +346,17 @@ fn random_direction_in_arc(dir: Vec2, arc_radians: f32, rng: &mut impl Rng) -> V
 
 #[derive(Default, Clone, Copy, Component, Reflect)]
 #[require(
-    Transform, 
+    Transform,
+    RigidBody::Dynamic,
     SerializedColliderConstructor = rectangle(50.0, 50.0),
+    CollisionLayers::new(Layer::Pickups, LayerMask::ALL),
     DebugPickingColor::new(PURPLE),
 )]
 #[reflect(Default, Component)]
 pub struct WeaponPickup;
 
 fn weapon_pickup(
+    _: On<Fire<PickUp>>,
     mut commands: Commands,
     player: Single<(Entity, &GlobalTransform), With<Player>>,
     weapon: Query<Entity, With<SelectedWeapon>>,
@@ -371,17 +375,23 @@ fn weapon_pickup(
             commands
                 .entity(pickup)
                 .remove::<(
-                    Transform, 
-                    WeaponPickup, 
-                    Collider, 
+                    Transform,
+                    WeaponPickup,
+                    Collider,
                     SerializedColliderConstructor,
-                    ColliderConstructor, 
-                    Sprite, 
+                    ColliderConstructor,
+                    Sprite,
                     DebugPickingColor,
                 )>()
                 .insert((SelectedWeapon, ChildOf(player)));
             for entity in weapon.iter() {
-                commands.entity(entity).despawn();
+                commands
+                    .entity(entity)
+                    .remove::<(SelectedWeapon, ChildOf)>()
+                    .insert((
+                        WeaponPickup,
+                        Transform::from_translation(player_translation.extend(0.0)),
+                    ));
             }
         }
     }

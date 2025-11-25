@@ -1,0 +1,420 @@
+(
+  resources: {},
+  entities: {
+    17179868941: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_ecs::name::Name": "Left Wall",
+        "bevy_transform::components::global_transform::GlobalTransform": ((-19.143644, 0.0, 0.0, 0.0, -0.27891892, 0.0, 0.0, 0.0, 1.0, 137.13748, 498.61536, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (137.13748, 498.61536, 0.0),
+          rotation: (0.0, 0.0, 1.0, 0.0),
+          scale: (19.143644, 0.27891892, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 25.0,
+          y_length: 720.0,
+        )),
+        "shplat::level::Wall": (),
+      },
+    ),
+    17179868942: (
+      components: {
+        "avian2d::collision::collider::Sensor": (),
+        "avian2d::collision::collision_events::CollisionEventsEnabled": (),
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_transform::components::global_transform::GlobalTransform": ((3.64459, 0.0, 0.0, 0.0, 0.90186155, 0.0, 0.0, 0.0, 1.0, 139.08258, 387.6536, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (139.08258, 387.6536, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (3.64459, 0.90186155, 1.0),
+        ),
+        "shplat::level::KillBox": (),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 128.0,
+          y_length: 25.0,
+        )),
+      },
+    ),
+    17179868943: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_ecs::name::Name": "Top Wall",
+        "bevy_transform::components::global_transform::GlobalTransform": ((0.6216157, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 16.281982, 605.976, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (16.281982, 605.976, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (0.6216157, 1.0, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 1280.0,
+          y_length: 25.0,
+        )),
+        "shplat::level::Wall": (),
+      },
+    ),
+    25769803565: (
+      components: {
+        "avian2d::collision::collider::Sensor": (),
+        "avian2d::collision::collision_events::CollisionEventsEnabled": (),
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_transform::components::global_transform::GlobalTransform": ((2.6000185, 0.0, 0.0, 0.0, 2.6656003, 0.0, 0.0, 0.0, 1.0, 241.82637, -351.6339, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (241.82637, -351.6339, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (2.6000185, 2.6656003, 1.0),
+        ),
+        "shplat::level::KeyOf": (25769803583),
+        "shplat::level::MustDestroy": (),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 20.0,
+          y_length: 20.0,
+        )),
+      },
+    ),
+    25769803579: (
+      components: {
+        "avian2d::collision::collider::Sensor": (),
+        "avian2d::collision::collision_events::CollisionEventsEnabled": (),
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_transform::components::global_transform::GlobalTransform": ((2.6000185, 0.0, 0.0, 0.0, 2.6656003, 0.0, 0.0, 0.0, 1.0, -199.83765, 85.059265, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-199.83765, 85.059265, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (2.6000185, 2.6656003, 1.0),
+        ),
+        "shplat::level::KeyOf": (30064770850),
+        "shplat::level::MustDestroy": (),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 20.0,
+          y_length: 20.0,
+        )),
+      },
+    ),
+    25769803583: (
+      components: {
+        "avian2d::collision::collider::Sensor": (),
+        "avian2d::collision::collision_events::CollisionEventsEnabled": (),
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_transform::components::global_transform::GlobalTransform": ((2.582698, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -229.07956, -442.69687, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-229.07956, -442.69687, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (2.582698, 1.0, 1.0),
+        ),
+        "shplat::level::KeyOf": (25769803586),
+        "shplat::level::Keys": ([
+          25769803565,
+        ]),
+        "shplat::level::KillBox": (),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 128.0,
+          y_length: 25.0,
+        )),
+      },
+    ),
+    25769803584: (
+      components: {
+        "avian2d::collision::collider::Sensor": (),
+        "avian2d::collision::collision_events::CollisionEventsEnabled": (),
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_transform::components::global_transform::GlobalTransform": ((3.124392, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -186.49292, -1.6279907, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-186.49292, -1.6279907, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (3.124392, 1.0, 1.0),
+        ),
+        "shplat::level::KillBox": (),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 128.0,
+          y_length: 25.0,
+        )),
+      },
+    ),
+    25769803585: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Dynamic,
+        "bevy_camera::visibility::Visibility": Inherited,
+        "bevy_ecs::name::Name": "Gravity Gun",
+        "bevy_transform::components::global_transform::GlobalTransform": ((1.0, 0.0, -0.0, 0.0, 1.0, 0.0, 0.0, -0.0, 1.0, -310.59845, -597.8365, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-310.59845, -597.8365, 0.0),
+          rotation: (0.0, 0.0, -0.0, 1.0),
+          scale: (1.0, 1.0, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 50.0,
+          y_length: 50.0,
+        )),
+        "shplat::weapon::GravityGun": (),
+        "shplat::weapon::MaxAmmo": (1),
+        "shplat::weapon::WeaponPickup": (),
+      },
+    ),
+    25769803586: (
+      components: {
+        "avian2d::collision::collider::Sensor": (),
+        "avian2d::collision::collision_events::CollisionEventsEnabled": (),
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_transform::components::global_transform::GlobalTransform": ((-3.8639548, 0.0, 0.0, 0.0, -5.4989066, 0.0, 0.0, 0.0, 1.0, -326.23926, 534.9707, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-326.23926, 534.9707, 0.0),
+          rotation: (0.0, 0.0, 1.0, 0.0),
+          scale: (3.8639548, 5.4989066, 1.0),
+        ),
+        "shplat::level::Door": ("gravity_1"),
+        "shplat::level::Keys": ([
+          25769803583,
+        ]),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 20.0,
+          y_length: 20.0,
+        )),
+      },
+    ),
+    25769803587: (
+      components: {
+        "bevy_ecs::hierarchy::ChildOf": (30064770852),
+        "bevy_ecs::name::Name": "Shotgun",
+        "shplat::level::Serialize": (),
+        "shplat::weapon::MaxAmmo": (2),
+        "shplat::weapon::SelectedWeapon": (),
+        "shplat::weapon::Shotgun": (),
+      },
+    ),
+    25769803591: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_ecs::name::Name": "Top Wall",
+        "bevy_transform::components::global_transform::GlobalTransform": ((0.6216157, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 7.001465, -635.3295, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (7.001465, -635.3295, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (0.6216157, 1.0, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 1280.0,
+          y_length: 25.0,
+        )),
+        "shplat::level::Wall": (),
+      },
+    ),
+    25769803594: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_ecs::name::Name": "Inspector Wall",
+        "bevy_transform::components::global_transform::GlobalTransform": ((-0.9593787, 0.0, 0.0, 0.0, 0.81489354, 0.0, 0.0, 0.0, 1.0, -279.29077, 468.13013, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-279.29077, 468.13013, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (0.9593787, -0.81489354, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 200.0,
+          y_length: 25.0,
+        )),
+        "shplat::level::Wall": (),
+      },
+    ),
+    25769803596: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_ecs::name::Name": "Left Wall",
+        "bevy_transform::components::global_transform::GlobalTransform": ((16.433586, 0.0, 0.0, 0.0, 0.21590966, 0.0, 0.0, 0.0, 1.0, -189.19873, -80.06012, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-189.19873, -80.06012, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (16.433586, 0.21590966, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 25.0,
+          y_length: 720.0,
+        )),
+        "shplat::level::Wall": (),
+      },
+    ),
+    30064770849: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_ecs::name::Name": "Left Wall",
+        "bevy_transform::components::global_transform::GlobalTransform": ((1.1069384, 0.0, 0.0, -0.0, -1.9656129, -0.0, 0.0, 0.0, 1.0, 390.89502, 41.005493, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (390.89502, 41.005493, 0.0),
+          rotation: (0.0, 0.0, 1.0, 0.0),
+          scale: (1.1069384, -1.9656129, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 25.0,
+          y_length: 720.0,
+        )),
+        "shplat::level::Wall": (),
+      },
+    ),
+    30064770850: (
+      components: {
+        "avian2d::collision::collider::Sensor": (),
+        "avian2d::collision::collision_events::CollisionEventsEnabled": (),
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_transform::components::global_transform::GlobalTransform": ((3.124392, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 197.46732, -1.0817261, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (197.46732, -1.0817261, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (3.124392, 1.0, 1.0),
+        ),
+        "shplat::level::Keys": ([
+          25769803579,
+        ]),
+        "shplat::level::KillBox": (),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 128.0,
+          y_length: 25.0,
+        )),
+      },
+    ),
+    30064770851: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_ecs::name::Name": "Left Wall",
+        "bevy_transform::components::global_transform::GlobalTransform": ((1.1069384, 0.0, 0.0, -0.0, -1.9656129, -0.0, 0.0, 0.0, 1.0, -381.33496, -11.184326, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-381.33496, -11.184326, 0.0),
+          rotation: (0.0, 0.0, 1.0, 0.0),
+          scale: (1.1069384, -1.9656129, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 25.0,
+          y_length: 720.0,
+        )),
+        "shplat::level::Wall": (),
+      },
+    ),
+    30064770852: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Dynamic,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::Children": ([
+          25769803587,
+        ]),
+        "bevy_ecs::name::Name": "Player",
+        "bevy_transform::components::global_transform::GlobalTransform": ((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, -228.43573, 500.8108, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (-228.43573, 500.8108, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (1.0, 1.0, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::player::Player": (),
+      },
+    ),
+    30064770853: (
+      components: {
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_ecs::name::Name": "Left Wall",
+        "bevy_transform::components::global_transform::GlobalTransform": ((18.548473, 0.0, 0.0, -0.0, -0.28271127, -0.0, 0.0, 0.0, 1.0, 158.29985, -554.0408, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (158.29985, -554.0408, 0.0),
+          rotation: (0.0, 0.0, 1.0, 0.0),
+          scale: (18.548473, -0.28271127, 1.0),
+        ),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 25.0,
+          y_length: 720.0,
+        )),
+        "shplat::level::Wall": (),
+      },
+    ),
+    30064770854: (
+      components: {
+        "bevy_camera::visibility::Visibility": Inherited,
+        "bevy_ecs::hierarchy::Children": ([
+          25769803584,
+          30064770851,
+          17179868943,
+          25769803594,
+          25769803591,
+          30064770849,
+          17179868941,
+          25769803596,
+          30064770856,
+          30064770853,
+          30064770850,
+          25769803583,
+          17179868942,
+        ]),
+        "bevy_ecs::name::Name": "Level Geometry",
+        "bevy_transform::components::global_transform::GlobalTransform": ((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (0.0, 0.0, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (1.0, 1.0, 1.0),
+        ),
+        "shplat::level::LevelGeometry": (),
+        "shplat::level::Serialize": (),
+      },
+    ),
+    30064770856: (
+      components: {
+        "avian2d::collision::collider::Sensor": (),
+        "avian2d::collision::collision_events::CollisionEventsEnabled": (),
+        "avian2d::dynamics::rigid_body::RigidBody": Static,
+        "bevy_camera::visibility::Visibility": Visible,
+        "bevy_ecs::hierarchy::ChildOf": (30064770854),
+        "bevy_transform::components::global_transform::GlobalTransform": ((3.6331127, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 169.58122, -441.6482, 0.0)),
+        "bevy_transform::components::transform::Transform": (
+          translation: (169.58122, -441.6482, 0.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (3.6331127, 1.0, 1.0),
+        ),
+        "shplat::level::KillBox": (),
+        "shplat::level::Serialize": (),
+        "shplat::level::SerializedColliderConstructor": (Rectangle(
+          x_length: 128.0,
+          y_length: 25.0,
+        )),
+      },
+    ),
+  },
+)
